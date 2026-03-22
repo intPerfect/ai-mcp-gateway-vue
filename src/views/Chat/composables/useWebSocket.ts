@@ -23,7 +23,6 @@ export function useWebSocket() {
 
     try {
       // 第一步：调用 HTTP 接口验证 Key 并获取 session
-      console.log('正在验证 Key...')
       const sessionResponse = await fetch(`${configStore.apiBaseUrl}/api/chat/session`, {
         method: 'POST',
         headers: {
@@ -46,12 +45,10 @@ export function useWebSocket() {
 
       // 第二步：连接 WebSocket
       const wsUrl = `ws://${window.location.hostname}:8777${wsPath}`
-      console.log('正在连接 WebSocket:', wsUrl)
       websocket = new WebSocket(wsUrl)
 
       return new Promise((resolve) => {
         websocket!.onopen = () => {
-          console.log('WebSocket 连接成功')
           chatStore.setConnected(true)
           chatStore.setConnecting(false)
           Message.success('连接成功')
@@ -72,7 +69,6 @@ export function useWebSocket() {
         }
 
         websocket!.onclose = () => {
-          console.log('WebSocket 连接已断开')
           chatStore.setConnected(false)
           chatStore.setConnecting(false)
           Message.warning('连接已断开')
@@ -105,8 +101,6 @@ export function useWebSocket() {
   }
 
   const handleWsMessage = (data: WSEvent) => {
-    console.log('收到消息:', data.type, data)
-
     switch (data.type) {
       case 'welcome':
         chatStore.setTools(data.tools as import('@/stores/chat').ToolInfo[])

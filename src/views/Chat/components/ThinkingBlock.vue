@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 <template>
   <div class="thinking-block">
     <div class="thinking-header">

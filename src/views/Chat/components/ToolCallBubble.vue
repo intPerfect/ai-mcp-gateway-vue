@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 <template>
   <div class="tool-call">
     <div class="tool-call-header">

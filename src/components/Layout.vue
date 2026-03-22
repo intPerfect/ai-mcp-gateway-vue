@@ -124,7 +124,6 @@ const toggleCollapse = () => {
 }
 
 const handleMenuClick = (key: string) => {
-  console.log('Menu clicked:', key)
   if (key && typeof key === 'string') {
     router.push('/' + key)
   }

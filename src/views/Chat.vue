@@ -291,12 +291,20 @@ import 'markstream-vue/index.css'
 interface ToolInfo {
   name: string
   description: string
-  input_schema: any
+  input_schema: Record<string, unknown>
+}
+
+interface ContentBlock {
+  type: 'thinking' | 'text' | 'tool_use' | 'tool_result'
+  thinking?: string
+  text?: string
+  name?: string
+  content?: string
 }
 
 interface MessageItem {
   role: 'user' | 'assistant'
-  content: string | any[]
+  content: string | ContentBlock[]
   time: string
   type?: string
   tool_id?: string
@@ -364,7 +372,6 @@ const connect = async () => {
 
   try {
     // 第一步：调用 HTTP 接口验证 Key 并获取 session
-    console.log('正在验证 Key...')
     const sessionResponse = await fetch(`${configForm.apiBaseUrl}/api/chat/session`, {
       method: 'POST',
       headers: {
@@ -387,11 +394,9 @@ const connect = async () => {
 
     // 第二步：连接 WebSocket
     const wsUrl = `ws://${window.location.hostname}:8777${wsPath}`
-    console.log('正在连接 WebSocket:', wsUrl)
     websocket = new WebSocket(wsUrl)
 
     websocket.onopen = () => {
-      console.log('WebSocket 连接成功')
       connected.value = true
       connecting.value = false
       Message.success('连接成功')
@@ -410,13 +415,11 @@ const connect = async () => {
     }
 
     websocket.onclose = () => {
-      console.log('WebSocket 连接已断开')
       connected.value = false
       connecting.value = false
       Message.warning('连接已断开')
     }
   } catch (error: any) {
-    console.error('连接失败:', error)
     Message.error('连接失败：' + error.message)
     connecting.value = false
   }
@@ -435,8 +438,6 @@ const disconnect = () => {
 const currentToolCall = ref<{ name: string; id: string; arguments: string } | null>(null)
 
 const handleWsMessage = (data: any) => {
-  console.log('收到消息:', data.type, data)
-
   switch (data.type) {
     case 'welcome':
       tools.value = data.tools || []
@@ -630,8 +631,7 @@ const handleWsMessage = (data: any) => {
     case 'status':
       // 状态消息 - 显示思考状态
       if (data.status === 'thinking') {
-        // 可以在这里添加思考中的视觉反馈
-        console.log('思考中:', data.message)
+        // 思考状态
       } else if (data.status === 'cleared') {
         messages.value = []
       }
