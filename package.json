@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "kill-port": "node -e \"const {execSync}=require('child_process');[5173,5174,5175,5176,5177].forEach(p=>{try{const r=execSync('netstat -ano | findstr :'+p+' | findstr LISTENING',{encoding:'utf8'});r.toString().split('\\n').forEach(l=>{const pid=l.trim().split(/\\s+/)[4];if(pid&&pid!=='0')try{execSync('taskkill /F /PID '+pid,{stdio:'ignore'});}catch(e){}})}catch(e){}});\"",
+    "predev": "npm run kill-port",
     "dev": "vite",
     "build": "vue-tsc && vite build",
     "preview": "vite preview"
@@ -11,7 +13,10 @@
   "dependencies": {
     "@arco-design/web-vue": "^2.55.0",
     "axios": "^1.6.8",
+    "markstream-vue": "^0.0.10-beta.1",
     "pinia": "^2.1.7",
+    "shiki": "^3.23.0",
+    "stream-markdown": "^0.0.14",
     "vue": "^3.4.21",
     "vue-router": "^4.3.0"
   },
