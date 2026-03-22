@@ -1,0 +1,350 @@
+/**
+ * useWebSocket - WebSocket 连接管理 composable
+ */
+import { ref, onUnmounted } from 'vue'
+import { Message } from '@arco-design/web-vue'
+import { useChatStore, useConfigStore } from '@/stores'
+
+export interface WSEvent {
+  type: string
+  [key: string]: unknown
+}
+
+export function useWebSocket() {
+  const chatStore = useChatStore()
+  const configStore = useConfigStore()
+  
+  let websocket: WebSocket | null = null
+
+  const connect = async (): Promise<boolean> => {
+    if (chatStore.connecting || chatStore.connected) return false
+
+    chatStore.setConnecting(true)
+
+    try {
+      // 第一步：调用 HTTP 接口验证 Key 并获取 session
+      console.log('正在验证 Key...')
+      const sessionResponse = await fetch(`${configStore.apiBaseUrl}/api/chat/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          gateway_key: configStore.gatewayKey,
+          llm_key: configStore.llmKey
+        })
+      })
+
+      if (!sessionResponse.ok) {
+        const errorData = await sessionResponse.json()
+        throw new Error(errorData.detail || '验证失败')
+      }
+
+      const sessionData = await sessionResponse.json()
+      chatStore.setSessionId(sessionData.session_id)
+      const wsPath = sessionData.websocket_url
+
+      // 第二步：连接 WebSocket
+      const wsUrl = `ws://${window.location.hostname}:8777${wsPath}`
+      console.log('正在连接 WebSocket:', wsUrl)
+      websocket = new WebSocket(wsUrl)
+
+      return new Promise((resolve) => {
+        websocket!.onopen = () => {
+          console.log('WebSocket 连接成功')
+          chatStore.setConnected(true)
+          chatStore.setConnecting(false)
+          Message.success('连接成功')
+          resolve(true)
+        }
+
+        websocket!.onmessage = (event) => {
+          const data = JSON.parse(event.data)
+          handleWsMessage(data)
+        }
+
+        websocket!.onerror = (error) => {
+          console.error('WebSocket 错误:', error)
+          Message.error('连接失败')
+          chatStore.setConnecting(false)
+          chatStore.setConnected(false)
+          resolve(false)
+        }
+
+        websocket!.onclose = () => {
+          console.log('WebSocket 连接已断开')
+          chatStore.setConnected(false)
+          chatStore.setConnecting(false)
+          Message.warning('连接已断开')
+        }
+      })
+    } catch (error: unknown) {
+      console.error('连接失败:', error)
+      const errorMessage = error instanceof Error ? error.message : '未知错误'
+      Message.error('连接失败：' + errorMessage)
+      chatStore.setConnecting(false)
+      return false
+    }
+  }
+
+  const disconnect = () => {
+    if (websocket) {
+      websocket.close()
+      websocket = null
+    }
+    chatStore.setConnected(false)
+    chatStore.setTools([])
+  }
+
+  const send = (data: unknown): boolean => {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.send(JSON.stringify(data))
+      return true
+    }
+    return false
+  }
+
+  const handleWsMessage = (data: WSEvent) => {
+    console.log('收到消息:', data.type, data)
+
+    switch (data.type) {
+      case 'welcome':
+        chatStore.setTools(data.tools as import('@/stores/chat').ToolInfo[])
+        Message.success(`已连接，已加载 ${chatStore.toolCount} 个工具`)
+        break
+
+      case 'stream_start':
+        handleStreamStart()
+        break
+
+      case 'text_delta':
+        handleTextDelta(data.text as string)
+        break
+
+      case 'thinking_delta':
+        handleThinkingDelta(data)
+        break
+
+      case 'tool_use_start':
+        handleToolUseStart(data)
+        break
+
+      case 'tool_use_stop':
+        // 工具调用声明结束
+        break
+
+      case 'tool_call':
+        handleToolCall(data)
+        break
+
+      case 'tool_result':
+        handleToolResult(data)
+        break
+
+      case 'response':
+        handleResponse(data)
+        break
+
+      case 'status':
+        handleStatus(data)
+        break
+
+      case 'error':
+        handleError(data.message as string)
+        break
+
+      case 'thinking':
+        handleThinking(data.thinking as string)
+        break
+    }
+  }
+
+  const handleStreamStart = () => {
+    const lastMsg = chatStore.getLastMessage()
+    if (!lastMsg || lastMsg.role !== 'assistant' || !lastMsg.streaming || lastMsg.content !== '') {
+      chatStore.addMessage({
+        role: 'assistant',
+        content: '',
+        time: formatTime(new Date()),
+        streaming: true
+      })
+    }
+  }
+
+  const handleTextDelta = (text: string) => {
+    if (text) {
+      const lastMsg = chatStore.getLastMessage()
+      if (lastMsg && lastMsg.role === 'assistant' && lastMsg.streaming) {
+        if (typeof lastMsg.content === 'string') {
+          lastMsg.content += text
+        }
+      }
+    }
+  }
+
+  const handleThinkingDelta = (data: WSEvent) => {
+    if (data.accumulated || data.thinking) {
+      const content = (data.accumulated as string) || (data.thinking as string) || ''
+      const round = (data.round as number) || 1
+
+      // 检查 round 是否变化
+      if (round !== chatStore.currentThinkingRound) {
+        chatStore.currentThinkingRound = round
+        chatStore.thinkingMsgIndex = -1
+      }
+
+      if (chatStore.thinkingMsgIndex === -1) {
+        const lastMsg = chatStore.getLastMessage()
+        if (lastMsg && lastMsg.role === 'assistant') {
+          const idx = chatStore.messages.length - 1
+          chatStore.thinkingMsgIndex = idx
+          chatStore.setThoughtExpanded(`${idx}-0`, true)
+          lastMsg.thinkingContent = content
+        }
+      } else {
+        const thinkingMsg = chatStore.messages[chatStore.thinkingMsgIndex]
+        if (thinkingMsg) {
+          thinkingMsg.thinkingContent = content
+        }
+      }
+    }
+  }
+
+  const handleToolUseStart = (data: WSEvent) => {
+    // 结束当前的流式消息
+    const lastStreamingMsg = chatStore.getLastMessage()
+    if (lastStreamingMsg && lastStreamingMsg.role === 'assistant' && lastStreamingMsg.streaming) {
+      if (lastStreamingMsg.content === '' && !lastStreamingMsg.thinkingContent) {
+        chatStore.messages.pop()
+      } else {
+        lastStreamingMsg.streaming = false
+      }
+    }
+
+    // 记录当前工具调用
+    chatStore.setCurrentToolCall({
+      name: data.name as string,
+      id: data.id as string,
+      arguments: ''
+    })
+
+    // 添加工具调用消息
+    chatStore.addMessage({
+      role: 'assistant',
+      content: '',
+      time: formatTime(new Date()),
+      type: 'tool_call',
+      tool: data.name as string,
+      arguments: '',
+      status: 'preparing'
+    })
+  }
+
+  const handleToolCall = (data: WSEvent) => {
+    const toolId = (data.tool_id as string) || (data.tool as string)
+    const existingToolMsg = chatStore.messages.find(
+      (m) => m.type === 'tool_call' && 
+        (m.tool_id === toolId || (m.tool === data.tool && m.status !== 'completed'))
+    )
+    const statusVal = (data.status as 'preparing' | 'executing' | 'completed') || 'executing'
+    if (existingToolMsg) {
+      existingToolMsg.arguments = JSON.stringify(data.arguments, null, 2)
+      existingToolMsg.status = statusVal
+    } else {
+      chatStore.addMessage({
+        role: 'assistant',
+        content: '',
+        time: formatTime(new Date()),
+        type: 'tool_call',
+        tool_id: toolId,
+        tool: data.tool as string,
+        arguments: JSON.stringify(data.arguments, null, 2),
+        status: statusVal
+      })
+    }
+  }
+
+  const handleToolResult = (data: WSEvent) => {
+    const resultToolId = (data.tool_id as string) || (data.tool as string)
+    const pendingToolMsg = [...chatStore.messages].reverse().find(
+      (m) => m.type === 'tool_call' && 
+        (m.tool_id === resultToolId || (m.tool === data.tool && m.status !== 'completed'))
+    )
+    if (pendingToolMsg) {
+      const result = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2)
+      pendingToolMsg.result = result
+      pendingToolMsg.status = 'completed'
+    }
+  }
+
+  const handleResponse = (data: WSEvent) => {
+    let targetMsg = null
+    for (let i = chatStore.messages.length - 1; i >= 0; i--) {
+      if (chatStore.messages[i].role === 'assistant' && chatStore.messages[i].type !== 'tool_call') {
+        targetMsg = chatStore.messages[i]
+        break
+      }
+    }
+    if (targetMsg) {
+      targetMsg.streaming = false
+      if (data.content && !targetMsg.content) {
+        targetMsg.content = data.content as string
+      }
+    } else if (data.content) {
+      chatStore.addMessage({
+        role: 'assistant',
+        content: data.content as string,
+        time: formatTime(new Date()),
+        streaming: false
+      })
+    }
+    chatStore.setLoading(false)
+    chatStore.setSending(false)
+  }
+
+  const handleStatus = (data: WSEvent) => {
+    if (data.status === 'cleared') {
+      chatStore.clearMessages()
+    }
+  }
+
+  const handleError = (message: string) => {
+    Message.error('错误: ' + message)
+    chatStore.setLoading(false)
+    chatStore.setSending(false)
+    // 清除流式状态
+    const lastMsg = chatStore.getLastMessage()
+    if (lastMsg && lastMsg.role === 'assistant') {
+      if (lastMsg.content === '' && lastMsg.streaming) {
+        chatStore.messages.pop()
+      } else {
+        lastMsg.streaming = false
+      }
+    }
+  }
+
+  const handleThinking = (thinking: string) => {
+    if (thinking) {
+      chatStore.addMessage({
+        role: 'assistant',
+        content: [{ type: 'thinking', thinking }],
+        time: formatTime(new Date())
+      })
+    }
+  }
+
+  const formatTime = (date: Date): string => {
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  onUnmounted(() => {
+    disconnect()
+  })
+
+  return {
+    websocket,
+    connect,
+    disconnect,
+    send
+  }
+}
