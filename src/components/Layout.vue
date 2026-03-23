@@ -14,7 +14,7 @@
         <span v-if="!collapsed" class="logo-text">AI MCP Gateway</span>
       </div>
       <a-menu
-        v-model:selectedKeys="selectedKeys"
+        v-model:selected-keys="selectedKeys"
         theme="light"
         mode="inline"
         @menu-item-click="handleMenuClick"
@@ -26,6 +26,10 @@
         <a-menu-item key="apikey">
           <template #icon><icon-safe /></template>
           <span>API Key管理</span>
+        </a-menu-item>
+        <a-menu-item key="microservice">
+          <template #icon><icon-cloud /></template>
+          <span>微服务管理</span>
         </a-menu-item>
         <a-menu-item key="tools">
           <template #icon><icon-apps /></template>
@@ -43,11 +47,7 @@
       <!-- 顶部栏 -->
       <a-layout-header class="header">
         <div class="header-left">
-          <a-button
-            type="text"
-            class="collapse-btn"
-            @click="toggleCollapse"
-          >
+          <a-button type="text" class="collapse-btn" @click="toggleCollapse">
             <icon-menu v-if="collapsed" />
             <icon-menu-unfold v-else />
           </a-button>
@@ -84,7 +84,8 @@ import {
   IconMessage,
   IconMenu,
   IconMenuUnfold,
-  IconUser
+  IconUser,
+  IconCloud
 } from '@arco-design/web-vue/es/icon'
 
 const router = useRouter()
@@ -96,6 +97,7 @@ const selectedKeys = ref(['home'])
 const pageTitleMap: Record<string, string> = {
   home: '首页',
   apikey: 'API Key管理',
+  microservice: '微服务管理',
   tools: '工具管理',
   chat: '对话测试'
 }
@@ -106,7 +108,7 @@ const pageTitle = computed(() => {
 
 watch(
   () => route.path,
-  (path) => {
+  path => {
     if (!path || typeof path !== 'string') {
       selectedKeys.value = ['home']
       return

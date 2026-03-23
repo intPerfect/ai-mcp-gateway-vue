@@ -20,15 +20,48 @@
               <a-input-password v-model="configForm.gatewayKey" placeholder="输入网关API Key" />
             </a-form-item>
             <a-form-item label="LLM API Key">
-              <a-input-password v-model="configForm.llmKey" placeholder="输入LLM API Key (MiniMax)" />
+              <a-input-password
+                v-model="configForm.llmKey"
+                placeholder="输入LLM API Key (MiniMax)"
+              />
             </a-form-item>
+
+            <!-- 微服务选择 -->
+            <a-form-item label="选择微服务">
+              <a-select
+                v-model="configForm.selectedMicroservices"
+                multiple
+                placeholder="选择要连接的微服务"
+                :disabled="connected"
+                allow-clear
+              >
+                <a-option
+                  v-for="ms in microserviceList"
+                  :key="ms.id"
+                  :value="ms.id"
+                  :label="ms.name"
+                >
+                  <a-space>
+                    <span>{{ ms.name }}</span>
+                    <a-tag v-if="ms.health_status === 'healthy'" color="green" size="small">
+                      健康
+                    </a-tag>
+                    <a-tag v-else-if="ms.health_status === 'unhealthy'" color="red" size="small">
+                      异常
+                    </a-tag>
+                    <a-tag v-else color="gray" size="small">未知</a-tag>
+                  </a-space>
+                </a-option>
+              </a-select>
+            </a-form-item>
+
             <a-form-item>
               <a-button
                 v-if="!connected"
                 type="primary"
                 long
-                @click="connect"
                 :loading="connecting"
+                @click="connect"
               >
                 <template #icon><icon-link /></template>
                 连接
@@ -41,12 +74,30 @@
           </a-form>
 
           <a-divider>可用工具</a-divider>
-          <div class="tool-tags">
-            <a-tag v-if="!connected">请先连接</a-tag>
-            <a-tag v-else-if="tools.length === 0">暂无工具</a-tag>
-            <a-tag v-for="tool in tools" :key="tool.name" color="arcoblue">
-              {{ tool.name }}
-            </a-tag>
+          <div v-if="!connected" class="tool-tags">
+            <a-tag>请先连接</a-tag>
+          </div>
+          <div v-else-if="tools.length === 0" class="tool-tags">
+            <a-tag>暂无工具</a-tag>
+          </div>
+          <div v-else class="tools-grouped">
+            <a-collapse
+              :default-active-key="Object.keys(toolsByGroup)"
+              expand-icon-position="right"
+            >
+              <a-collapse-item
+                v-for="(toolList, groupName) in toolsByGroup"
+                :key="groupName"
+                :header="`${groupName} (${toolList.length})`"
+                :name="groupName"
+              >
+                <div class="tool-tags-group">
+                  <a-tag v-for="tool in toolList" :key="tool.name" color="arcoblue">
+                    {{ tool.name }}
+                  </a-tag>
+                </div>
+              </a-collapse-item>
+            </a-collapse>
           </div>
         </a-card>
       </a-col>
@@ -63,7 +114,7 @@
             </a-space>
           </template>
           <template #extra>
-            <a-button type="text" @click="clearChat" :disabled="messages.length === 0">
+            <a-button type="text" :disabled="messages.length === 0" @click="clearChat">
               <template #icon><icon-delete /></template>
               清空
             </a-button>
@@ -75,11 +126,7 @@
               <icon-message size="48" />
               <p>开始对话吧</p>
             </div>
-            <div
-              v-for="(msg, index) in messages"
-              :key="index"
-              :class="['message-item', msg.role]"
-            >
+            <div v-for="(msg, index) in messages" :key="index" :class="['message-item', msg.role]">
               <div class="message-avatar">
                 <icon-user v-if="msg.role === 'user'" />
                 <icon-robot v-else />
@@ -143,23 +190,19 @@
                       <div class="thinking-header">
                         <icon-mind-mapping size="14" />
                         <span>思考过程</span>
-                        <a-button
-                          type="text"
-                          size="mini"
-                          @click="toggleThinking(index, 0)"
-                        >
+                        <a-button type="text" size="mini" @click="toggleThinking(index, 0)">
                           {{ expandedThoughts[`${index}-0`] ? '收起' : '展开' }}
                         </a-button>
                       </div>
-                      <div
-                        v-if="expandedThoughts[`${index}-0`]"
-                        class="thinking-content"
-                      >
+                      <div v-if="expandedThoughts[`${index}-0`]" class="thinking-content">
                         {{ msg.thinkingContent }}
                       </div>
                     </div>
                     <!-- 只有当有内容时才显示 -->
-                    <div v-if="typeof msg.content === 'string' && msg.content.trim()" class="text-content">
+                    <div
+                      v-if="typeof msg.content === 'string' && msg.content.trim()"
+                      class="text-content"
+                    >
                       <MarkdownRender
                         :content="msg.content"
                         :streaming="msg.streaming"
@@ -213,7 +256,6 @@
                 </div>
               </div>
             </div>
-
           </div>
 
           <!-- 输入区域 -->
@@ -231,9 +273,9 @@
               </a-space>
               <a-button
                 type="primary"
-                @click="handleSend"
                 :disabled="!connected || !inputMessage.trim()"
                 :loading="sending"
+                @click="handleSend"
               >
                 <template #icon><icon-send /></template>
                 发送
@@ -244,7 +286,7 @@
               <div class="suggestions-header">
                 <span class="suggestions-title">猜你想问</span>
                 <a-button type="text" size="small" class="refresh-btn" @click="refreshQuestions">
-                  <icon-refresh :class="{ 'refreshing': isRefreshing }" />
+                  <icon-refresh :class="{ refreshing: isRefreshing }" />
                   <span>换一换</span>
                 </a-button>
               </div>
@@ -268,7 +310,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick, onUnmounted, onMounted } from 'vue'
+import { ref, reactive, computed, nextTick, onUnmounted, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import {
   IconSettings,
@@ -292,6 +334,17 @@ interface ToolInfo {
   name: string
   description: string
   input_schema: Record<string, unknown>
+  microservice_name?: string
+}
+
+interface Microservice {
+  id: number
+  name: string
+  http_base_url: string
+  description: string
+  business_line: string
+  health_status: 'healthy' | 'unhealthy' | 'unknown'
+  tool_count?: number
 }
 
 interface ContentBlock {
@@ -322,7 +375,9 @@ const sessionId = ref('')
 const configForm = reactive({
   apiBaseUrl: `http://${window.location.hostname}:8777`,
   gatewayKey: 'gw-test-api-key-001',
-  llmKey: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLnmb7ono3kupHliJsiLCJVc2VyTmFtZSI6IueZvuiejeS6keWImyIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxOTk4NjY2Nzg0MTg5NzE0Njk5IiwiUGhvbmUiOiIxOTUxMTk4MTY4OSIsIkdyb3VwSUQiOiIxOTk4NjY2Nzg0MTgxMzI2MDkxIiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiIiwiQ3JlYXRlVGltZSI6IjIwMjUtMTItMTAgMjE6MzI6MTYiLCJUb2tlblR5cGUiOjQsImlzcyI6Im1pbmltYXgifQ.u5vB41nODwjoj-a728IeKgtdnoL7AC0rJbw3Uv8iXA6CVqXQ3SY5RCTo87yAzAeva8prR4YcBQ-nIG5mtXYd_jemI-mjA909hYN3yvWsjuD4m_3U2SqoDY5E6vV6gyGPzQlnB0OkzOKJCwQbb6FUfcymWTSiAtw2k8DgfCeQLJLUMKmxOjHYOontut_gujCxY57wU-8h0p4PWkS74hLnritLO3oIBq6ZNmf1d3uC4pw-jVCflSlymm16luObc-DeohNc83fAOtMPSJ76mi_bdAcoIgCOyAP3VUan53QyLHwzcq-i8YI-TuxkAvH3slauNsHAfUWNhlqJouRXdFwsHg'
+  llmKey:
+    'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLnmb7ono3kupHliJsiLCJVc2VyTmFtZSI6IueZvuiejeS6keWImyIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxOTk4NjY2Nzg0MTg5NzE0Njk5IiwiUGhvbmUiOiIxOTUxMTk4MTY4OSIsIkdyb3VwSUQiOiIxOTk4NjY2Nzg0MTgxMzI2MDkxIiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiIiwiQ3JlYXRlVGltZSI6IjIwMjUtMTItMTAgMjE6MzI6MTYiLCJUb2tlblR5cGUiOjQsImlzcyI6Im1pbmltYXgifQ.u5vB41nODwjoj-a728IeKgtdnoL7AC0rJbw3Uv8iXA6CVqXQ3SY5RCTo87yAzAeva8prR4YcBQ-nIG5mtXYd_jemI-mjA909hYN3yvWsjuD4m_3U2SqoDY5E6vV6gyGPzQlnB0OkzOKJCwQbb6FUfcymWTSiAtw2k8DgfCeQLJLUMKmxOjHYOontut_gujCxY57wU-8h0p4PWkS74hLnritLO3oIBq6ZNmf1d3uC4pw-jVCflSlymm16luObc-DeohNc83fAOtMPSJ76mi_bdAcoIgCOyAP3VUan53QyLHwzcq-i8YI-TuxkAvH3slauNsHAfUWNhlqJouRXdFwsHg',
+  selectedMicroservices: [] as number[] // 选中的微服务ID列表
 })
 
 const connected = ref(false)
@@ -332,6 +387,18 @@ const sending = ref(false)
 const inputMessage = ref('')
 const messages = ref<MessageItem[]>([])
 const tools = ref<ToolInfo[]>([])
+const microserviceList = ref<Microservice[]>([])
+
+// 按 microservice_name 分组，过滤掉未绑定的
+const toolsByGroup = computed(() => {
+  const groups: Record<string, ToolInfo[]> = {}
+  for (const tool of tools.value) {
+    if (!tool.microservice_name) continue
+    if (!groups[tool.microservice_name]) groups[tool.microservice_name] = []
+    groups[tool.microservice_name].push(tool)
+  }
+  return groups
+})
 const messageListRef = ref<HTMLElement | null>(null)
 const expandedThoughts = reactive<Record<string, boolean>>({})
 // 追踪当前对话轮次的思考内容归宿消息索引（-1 表示尚未分配）
@@ -360,9 +427,23 @@ const loadGatewayKey = async () => {
   }
 }
 
-// 页面加载时获取网关Key
+// 加载微服务列表
+const loadMicroservices = async () => {
+  try {
+    const response = await fetch('/api/microservices')
+    const result = await response.json()
+    if (result.code === '0000') {
+      microserviceList.value = result.data || []
+    }
+  } catch (error) {
+    console.error('加载微服务列表失败:', error)
+  }
+}
+
+// 页面加载时获取网关Key和微服务列表
 onMounted(() => {
   loadGatewayKey()
+  loadMicroservices()
 })
 
 const connect = async () => {
@@ -379,7 +460,9 @@ const connect = async () => {
       },
       body: JSON.stringify({
         gateway_key: configForm.gatewayKey,
-        llm_key: configForm.llmKey
+        llm_key: configForm.llmKey,
+        microservice_ids:
+          configForm.selectedMicroservices.length > 0 ? configForm.selectedMicroservices : null
       })
     })
 
@@ -402,12 +485,12 @@ const connect = async () => {
       Message.success('连接成功')
     }
 
-    websocket.onmessage = (event) => {
+    websocket.onmessage = event => {
       const data = JSON.parse(event.data)
       handleWsMessage(data)
     }
 
-    websocket.onerror = (error) => {
+    websocket.onerror = error => {
       console.error('WebSocket 错误:', error)
       Message.error('连接失败')
       connecting.value = false
@@ -440,6 +523,7 @@ const currentToolCall = ref<{ name: string; id: string; arguments: string } | nu
 const handleWsMessage = (data: any) => {
   switch (data.type) {
     case 'welcome':
+      console.log('收到 welcome 消息:', data)
       tools.value = data.tools || []
       Message.success(`已连接，已加载 ${tools.value.length} 个工具`)
       break
@@ -455,18 +539,25 @@ const handleWsMessage = (data: any) => {
 
     case 'stream_start':
       // 流式输出开始：如果已有空的loading气泡则复用，否则创建新气泡
-      const lastStreamMsg = messages.value[messages.value.length - 1]
-      if (lastStreamMsg && lastStreamMsg.role === 'assistant' && lastStreamMsg.streaming && lastStreamMsg.content === '') {
-        // 复用已有的loading气泡（发送消息后预创建的）
-      } else {
-        messages.value.push({
-          role: 'assistant',
-          content: '',
-          time: formatTime(new Date()),
-          streaming: true
-        })
+      {
+        const lastStreamMsg = messages.value[messages.value.length - 1]
+        if (
+          lastStreamMsg &&
+          lastStreamMsg.role === 'assistant' &&
+          lastStreamMsg.streaming &&
+          lastStreamMsg.content === ''
+        ) {
+          // 复用已有的loading气泡（发送消息后预创建的）
+        } else {
+          messages.value.push({
+            role: 'assistant',
+            content: '',
+            time: formatTime(new Date()),
+            streaming: true
+          })
+        }
+        scrollToBottom()
       }
-      scrollToBottom()
       break
 
     case 'text_delta':
@@ -486,14 +577,14 @@ const handleWsMessage = (data: any) => {
         // 使用后端传来的本轮累积内容
         const content = data.accumulated || data.thinking || ''
         const round = data.round || 1
-        
+
         // 检查 round 是否变化，变化则需要创建新的 thinking 块
         if (round !== currentThinkingRound.value) {
           // 新轮次，重置 thinking 追踪
           currentThinkingRound.value = round
           thinkingMsgIndex.value = -1
         }
-        
+
         if (thinkingMsgIndex.value === -1) {
           // 当前轮次首次收到 thinking_delta：绑定到最后一个 assistant 消息
           const lastMsg = messages.value[messages.value.length - 1]
@@ -523,7 +614,11 @@ const handleWsMessage = (data: any) => {
       // 工具调用开始 - 先结束当前的流式消息，再显示工具调用
       {
         const lastStreamingMsg = messages.value[messages.value.length - 1]
-        if (lastStreamingMsg && lastStreamingMsg.role === 'assistant' && lastStreamingMsg.streaming) {
+        if (
+          lastStreamingMsg &&
+          lastStreamingMsg.role === 'assistant' &&
+          lastStreamingMsg.streaming
+        ) {
           if (lastStreamingMsg.content === '' && !lastStreamingMsg.thinkingContent) {
             // 气泡为空，直接移除避免残留
             messages.value.pop()
@@ -560,41 +655,50 @@ const handleWsMessage = (data: any) => {
     case 'tool_call':
       // 更新工具调用消息（执行中状态）
       // 使用 tool_id 匹配，如果没有则使用 tool 名称
-      const toolId = data.tool_id || data.tool
-      const existingToolMsg = messages.value.find(
-        (m: MessageItem) => m.type === 'tool_call' && 
-          (m.tool_id === toolId || (m.tool === data.tool && m.status !== 'completed'))
-      )
-      if (existingToolMsg) {
-        existingToolMsg.arguments = JSON.stringify(data.arguments, null, 2)
-        existingToolMsg.status = data.status || 'executing'
-      } else {
-        messages.value.push({
-          role: 'assistant',
-          content: '',
-          time: formatTime(new Date()),
-          type: 'tool_call',
-          tool_id: toolId,
-          tool: data.tool,
-          arguments: JSON.stringify(data.arguments, null, 2),
-          status: data.status || 'executing'
-        })
+      {
+        const toolId = data.tool_id || data.tool
+        const existingToolMsg = messages.value.find(
+          (m: MessageItem) =>
+            m.type === 'tool_call' &&
+            (m.tool_id === toolId || (m.tool === data.tool && m.status !== 'completed'))
+        )
+        if (existingToolMsg) {
+          existingToolMsg.arguments = JSON.stringify(data.arguments, null, 2)
+          existingToolMsg.status = data.status || 'executing'
+        } else {
+          messages.value.push({
+            role: 'assistant',
+            content: '',
+            time: formatTime(new Date()),
+            type: 'tool_call',
+            tool_id: toolId,
+            tool: data.tool,
+            arguments: JSON.stringify(data.arguments, null, 2),
+            status: data.status || 'executing'
+          })
+        }
+        scrollToBottom()
       }
-      scrollToBottom()
       break
 
     case 'tool_result':
       // 更新工具调用结果
-      const resultToolId = data.tool_id || data.tool
-      const pendingToolMsg = [...messages.value].reverse().find(
-        (m: MessageItem) => m.type === 'tool_call' && 
-          (m.tool_id === resultToolId || (m.tool === data.tool && m.status !== 'completed'))
-      )
-      if (pendingToolMsg) {
-        pendingToolMsg.result = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2)
-        pendingToolMsg.status = 'completed'
+      {
+        const resultToolId = data.tool_id || data.tool
+        const pendingToolMsg = [...messages.value]
+          .reverse()
+          .find(
+            (m: MessageItem) =>
+              m.type === 'tool_call' &&
+              (m.tool_id === resultToolId || (m.tool === data.tool && m.status !== 'completed'))
+          )
+        if (pendingToolMsg) {
+          pendingToolMsg.result =
+            typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2)
+          pendingToolMsg.status = 'completed'
+        }
+        scrollToBottom()
       }
-      scrollToBottom()
       break
 
     case 'response':
@@ -697,10 +801,12 @@ const handleSend = () => {
   scrollToBottom()
 
   if (websocket && websocket.readyState === WebSocket.OPEN) {
-    websocket.send(JSON.stringify({
-      type: 'chat',
-      content: message
-    }))
+    websocket.send(
+      JSON.stringify({
+        type: 'chat',
+        content: message
+      })
+    )
     sending.value = false
   } else {
     Message.error('连接已断开')
@@ -751,7 +857,7 @@ const allQuestions = [
   // 综合任务类
   { text: '推荐三款性价比最高的商品' },
   { text: '查找用户最常购买的商品组合' },
-  { text: '分析哪些商品适合做促销活动' },
+  { text: '分析哪些商品适合做促销活动' }
 ]
 
 // 当前显示的问题
@@ -795,6 +901,31 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.tools-grouped {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.tools-grouped :deep(.arco-collapse-item) {
+  margin-bottom: 4px;
+}
+
+.tools-grouped :deep(.arco-collapse-item-header) {
+  padding: 8px 12px;
+  background: #f7f8fa;
+  border-radius: 4px;
+}
+
+.tools-grouped :deep(.arco-collapse-item-content) {
+  padding: 8px;
+}
+
+.tool-tags-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .chat-card {
@@ -991,9 +1122,15 @@ pre {
   font-weight: 600;
 }
 
-.markdown-stream :deep(h1) { font-size: 1.5em; }
-.markdown-stream :deep(h2) { font-size: 1.3em; }
-.markdown-stream :deep(h3) { font-size: 1.1em; }
+.markdown-stream :deep(h1) {
+  font-size: 1.5em;
+}
+.markdown-stream :deep(h2) {
+  font-size: 1.3em;
+}
+.markdown-stream :deep(h3) {
+  font-size: 1.1em;
+}
 
 .markdown-stream :deep(p) {
   margin: 8px 0;
@@ -1193,8 +1330,12 @@ pre {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .suggestions-list {

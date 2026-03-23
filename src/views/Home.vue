@@ -1,160 +1,186 @@
 <template>
   <div class="home">
-    <!-- 欢迎卡片 -->
-    <a-row :gutter="16" class="welcome-row">
-      <a-col :span="24">
-        <a-card class="welcome-card">
-          <div class="welcome-content">
-            <div class="welcome-text">
-              <h2>欢迎使用 AI MCP Gateway</h2>
-              <p>基于 Model Context Protocol 的智能网关管理系统</p>
+    <!-- Hero 欢迎区域 -->
+    <div class="hero-section">
+      <div class="hero-content">
+        <div class="hero-text">
+          <h1>AI MCP Gateway</h1>
+          <p class="hero-subtitle">基于 Model Context Protocol 的智能网关管理系统</p>
+          <p class="hero-description">统一管理 AI 工具接口，提供安全可靠的工具调用能力</p>
+        </div>
+        <a-button type="primary" size="large" class="hero-button" @click="$router.push('/chat')">
+          <template #icon><icon-message /></template>
+          开始对话
+        </a-button>
+      </div>
+      <div class="hero-decoration">
+        <div class="decoration-circle circle-1"></div>
+        <div class="decoration-circle circle-2"></div>
+        <div class="decoration-circle circle-3"></div>
+      </div>
+    </div>
+
+    <!-- 统计概览 -->
+    <div class="stats-section">
+      <div class="stat-item">
+        <div
+          class="stat-icon-wrapper"
+          style="background: linear-gradient(135deg, #165dff, #4080ff)"
+        >
+          <icon-apps class="stat-icon" />
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.tools }}</span>
+          <span class="stat-label">注册工具</span>
+        </div>
+      </div>
+      <div class="stat-item">
+        <div
+          class="stat-icon-wrapper"
+          style="background: linear-gradient(135deg, #00b42a, #00d68b)"
+        >
+          <icon-message class="stat-icon" />
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.sessions }}</span>
+          <span class="stat-label">活跃会话</span>
+        </div>
+      </div>
+      <div class="stat-item">
+        <div
+          class="stat-icon-wrapper"
+          style="background: linear-gradient(135deg, #722ed1, #9a4dff)"
+        >
+          <icon-safe class="stat-icon" />
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.apikeys }}</span>
+          <span class="stat-label">API Key</span>
+        </div>
+      </div>
+      <div class="stat-item">
+        <div
+          class="stat-icon-wrapper"
+          style="background: linear-gradient(135deg, #ff7d00, #ffaa00)"
+        >
+          <icon-branch class="stat-icon" />
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.requests }}</span>
+          <span class="stat-label">请求次数</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 功能入口卡片 -->
+    <div class="features-section">
+      <h2 class="section-title">功能导航</h2>
+      <div class="features-grid">
+        <div class="feature-card" @click="$router.push('/tools')">
+          <div class="feature-header">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #165dff, #722ed1)">
+              <icon-apps />
             </div>
-            <a-button type="primary" size="large" @click="$router.push('/chat')">
-              开始对话
-              <template #icon><icon-message /></template>
-            </a-button>
-          </div>
-        </a-card>
-      </a-col>
-    </a-row>
-
-    <!-- 统计卡片 -->
-    <a-row :gutter="16" class="stats-row">
-      <a-col :xs="12" :sm="6">
-        <a-card class="stat-card">
-          <a-statistic
-            title="注册工具"
-            :value="stats.tools"
-            :value-style="{ color: '#165dff' }"
-          >
-            <template #suffix>
-              <span class="stat-suffix">个</span>
-            </template>
-            <template #icon>
-              <icon-apps class="stat-icon" />
-            </template>
-          </a-statistic>
-        </a-card>
-      </a-col>
-      <a-col :xs="12" :sm="6">
-        <a-card class="stat-card">
-          <a-statistic
-            title="活跃会话"
-            :value="stats.sessions"
-            :value-style="{ color: '#00b42a' }"
-          >
-            <template #suffix>
-              <span class="stat-suffix">个</span>
-            </template>
-            <template #icon>
-              <icon-message class="stat-icon" />
-            </template>
-          </a-statistic>
-        </a-card>
-      </a-col>
-      <a-col :xs="12" :sm="6">
-        <a-card class="stat-card">
-          <a-statistic
-            title="API Key"
-            :value="stats.apikeys"
-            :value-style="{ color: '#722ed1' }"
-          >
-            <template #suffix>
-              <span class="stat-suffix">个</span>
-            </template>
-            <template #icon>
-              <icon-safe class="stat-icon" />
-            </template>
-          </a-statistic>
-        </a-card>
-      </a-col>
-      <a-col :xs="12" :sm="6">
-        <a-card class="stat-card">
-          <a-statistic
-            title="请求次数"
-            :value="stats.requests"
-            :value-style="{ color: '#ff7d00' }"
-          >
-            <template #icon>
-              <icon-branch class="stat-icon" />
-            </template>
-          </a-statistic>
-        </a-card>
-      </a-col>
-    </a-row>
-
-    <!-- 功能入口 -->
-    <a-row :gutter="16" class="features-row">
-      <a-col :xs="24" :sm="8">
-        <a-card class="feature-card" hoverable @click="$router.push('/tools')">
-          <div class="feature-icon" style="background: linear-gradient(135deg, #165dff, #722ed1)">
-            <icon-apps />
+            <icon-right class="feature-arrow" />
           </div>
           <h3>工具管理</h3>
-          <p>管理MCP工具，健康检查，OpenAPI导入</p>
-        </a-card>
-      </a-col>
-      <a-col :xs="24" :sm="8">
-        <a-card class="feature-card" hoverable @click="$router.push('/apikey')">
-          <div class="feature-icon" style="background: linear-gradient(135deg, #00b42a, #00d068)">
-            <icon-safe />
+          <p>管理 MCP 工具，健康检查，OpenAPI 导入</p>
+          <div class="feature-tags">
+            <span class="tag">健康检查</span>
+            <span class="tag">OpenAPI</span>
           </div>
-          <h3>API Key</h3>
-          <p>管理用户和网关API Key</p>
-        </a-card>
-      </a-col>
-      <a-col :xs="24" :sm="8">
-        <a-card class="feature-card" hoverable @click="$router.push('/chat')">
-          <div class="feature-icon" style="background: linear-gradient(135deg, #ff7d00, #ffc547)">
-            <icon-message />
+        </div>
+
+        <div class="feature-card" @click="$router.push('/apikey')">
+          <div class="feature-header">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #00b42a, #00d068)">
+              <icon-safe />
+            </div>
+            <icon-right class="feature-arrow" />
+          </div>
+          <h3>API Key 管理</h3>
+          <p>管理用户和网关 API Key，控制访问权限</p>
+          <div class="feature-tags">
+            <span class="tag">权限控制</span>
+            <span class="tag">安全认证</span>
+          </div>
+        </div>
+
+        <div class="feature-card" @click="$router.push('/chat')">
+          <div class="feature-header">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #ff7d00, #ffc547)">
+              <icon-message />
+            </div>
+            <icon-right class="feature-arrow" />
           </div>
           <h3>对话测试</h3>
-          <p>WebSocket实时对话，工具调用测试</p>
-        </a-card>
-      </a-col>
-    </a-row>
+          <p>WebSocket 实时对话，工具调用测试</p>
+          <div class="feature-tags">
+            <span class="tag">实时对话</span>
+            <span class="tag">工具调用</span>
+          </div>
+        </div>
 
-    <!-- 最新工具列表 -->
-    <a-row :gutter="16" class="tools-row">
-      <a-col :span="24">
-        <a-card>
-          <template #title>
-            <span>最新工具</span>
-            <a-button type="text" size="small" @click="$router.push('/tools')">
-              查看全部 <icon-right />
-            </a-button>
-          </template>
-          <div v-if="loading" class="loading">
-            <a-spin />
+        <div class="feature-card" @click="$router.push('/microservice')">
+          <div class="feature-header">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #f5319d, #ff7a45)">
+              <icon-storage />
+            </div>
+            <icon-right class="feature-arrow" />
           </div>
-          <div v-else-if="recentTools.length === 0" class="empty">
-            暂无工具，请先导入
+          <h3>微服务管理</h3>
+          <p>管理微服务配置，监控服务状态</p>
+          <div class="feature-tags">
+            <span class="tag">服务配置</span>
+            <span class="tag">状态监控</span>
           </div>
-          <a-table
-            v-else
-            :columns="columns"
-            :data="recentTools"
-            :pagination="false"
-            :bordered="false"
-            size="small"
-          >
-            <template #status="{ record }">
-              <a-tag :color="record.status === 'healthy' ? 'green' : 'red'">
-                {{ record.status === 'healthy' ? '正常' : '异常' }}
-              </a-tag>
-            </template>
-          </a-table>
-        </a-card>
-      </a-col>
-    </a-row>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快速指南 -->
+    <div class="guide-section">
+      <h2 class="section-title">快速开始</h2>
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h4>配置 API Key</h4>
+            <p>创建用户 API Key 用于身份认证</p>
+          </div>
+        </div>
+        <div class="step-connector"></div>
+        <div class="guide-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h4>导入工具</h4>
+            <p>通过 OpenAPI 导入微服务工具</p>
+          </div>
+        </div>
+        <div class="step-connector"></div>
+        <div class="guide-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h4>开始对话</h4>
+            <p>与 AI 进行对话，自动调用工具</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { IconApps, IconMessage, IconSafe, IconBranch, IconRight } from '@arco-design/web-vue/es/icon'
+import {
+  IconApps,
+  IconMessage,
+  IconSafe,
+  IconBranch,
+  IconRight,
+  IconStorage
+} from '@arco-design/web-vue/es/icon'
 
-const loading = ref(false)
 const stats = ref({
   tools: 0,
   sessions: 3,
@@ -162,31 +188,16 @@ const stats = ref({
   requests: 128
 })
 
-const columns = [
-  { title: '名称', dataIndex: 'name' },
-  { title: '描述', dataIndex: 'description', ellipsis: true },
-  { title: '状态', slotName: 'status' }
-]
-
-const recentTools = ref<Array<{ name: string; description: string; status: string }>>([])
-
 const loadData = async () => {
-  loading.value = true
   try {
     const response = await fetch('/api/tools')
     const result = await response.json()
     if (result.code === '0000') {
-      recentTools.value = (result.data.tools || []).slice(0, 5).map((t: any) => ({
-        name: t.name,
-        description: t.description,
-        status: t.status || 'unknown'
-      }))
       stats.value.tools = result.data.total || 0
     }
   } catch (error) {
     console.error('Failed to load data:', error)
   }
-  loading.value = false
 }
 
 onMounted(() => {
@@ -197,104 +208,325 @@ onMounted(() => {
 <style scoped>
 .home {
   padding: 0;
+  min-height: 100%;
 }
 
-.welcome-card {
-  background: linear-gradient(135deg, #165dff 0%, #722ed1 100%);
-  border: none;
+/* Hero Section */
+.hero-section {
+  position: relative;
+  background: linear-gradient(135deg, #165dff 0%, #722ed1 50%, #9a4dff 100%);
+  padding: 48px 32px;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 24px;
 }
 
-.welcome-card :deep(.arco-card-body) {
-  padding: 32px;
-}
-
-.welcome-content {
+.hero-content {
+  position: relative;
+  z-index: 2;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.welcome-text h2 {
+.hero-text h1 {
   color: #fff;
-  margin: 0 0 8px 0;
-  font-size: 24px;
-}
-
-.welcome-text p {
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0;
-  font-size: 14px;
-}
-
-.stats-row {
-  margin-top: 16px;
-}
-
-.stat-card {
-  text-align: center;
-}
-
-.stat-card :deep(.arco-statistic-content) {
-  justify-content: center;
-}
-
-.stat-icon {
   font-size: 32px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
 }
 
-.stat-suffix {
+.hero-subtitle {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 18px;
+  margin: 0 0 8px 0;
+}
+
+.hero-description {
+  color: rgba(255, 255, 255, 0.75);
   font-size: 14px;
-  color: #86909c;
-  margin-left: 4px;
+  margin: 0;
 }
 
-.features-row {
-  margin-top: 16px;
+.hero-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(4px);
+  font-size: 16px;
+  height: 48px;
+  padding: 0 32px;
 }
 
-.feature-card {
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
+.hero-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
-.feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+.hero-decoration {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 50%;
+  pointer-events: none;
 }
 
-.feature-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
+.decoration-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.circle-1 {
+  width: 200px;
+  height: 200px;
+  top: -50px;
+  right: -50px;
+}
+
+.circle-2 {
+  width: 150px;
+  height: 150px;
+  bottom: -30px;
+  right: 100px;
+}
+
+.circle-3 {
+  width: 80px;
+  height: 80px;
+  top: 50%;
+  right: 50px;
+  transform: translateY(-50%);
+}
+
+/* Stats Section */
+.stats-section {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+  .stats-section {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.stat-item {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.stat-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 16px;
-  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.stat-icon {
+  font-size: 24px;
   color: #fff;
 }
 
-.feature-card h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
   color: #1d2129;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #86909c;
+  margin-top: 4px;
+}
+
+/* Features Section */
+.features-section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1d2129;
+  margin: 0 0 16px 0;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.feature-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.feature-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+}
+
+.feature-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.feature-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #fff;
+}
+
+.feature-arrow {
+  color: #c9cdd4;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.feature-card:hover .feature-arrow {
+  color: #165dff;
+  transform: translateX(4px);
+}
+
+.feature-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d2129;
+  margin: 0 0 8px 0;
 }
 
 .feature-card p {
-  margin: 0;
+  font-size: 13px;
+  color: #86909c;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.feature-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tag {
   font-size: 12px;
-  color: #86909c;
+  color: #165dff;
+  background: #e8f3ff;
+  padding: 4px 10px;
+  border-radius: 4px;
 }
 
-.tools-row {
-  margin-top: 16px;
+/* Guide Section */
+.guide-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.loading,
-.empty {
-  text-align: center;
-  padding: 32px;
+.guide-steps {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+@media (max-width: 768px) {
+  .guide-steps {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .step-connector {
+    display: none;
+  }
+}
+
+.guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex: 1;
+}
+
+.step-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #165dff, #722ed1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.step-content h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2129;
+  margin: 0 0 4px 0;
+}
+
+.step-content p {
+  font-size: 13px;
   color: #86909c;
+  margin: 0;
+}
+
+.step-connector {
+  flex: 0 0 60px;
+  height: 2px;
+  background: linear-gradient(90deg, #165dff, #722ed1);
+  margin-top: 17px;
+  opacity: 0.3;
 }
 </style>
