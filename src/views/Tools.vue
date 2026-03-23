@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 <template>
   <div class="tools-page">
-    <a-card>
-      <template #title>
-        <a-space>
-          <icon-apps />
-          <span>工具管理</span>
-        </a-space>
-      </template>
+    <a-card :bordered="false">
       <template #extra>
         <a-space>
           <a-button type="primary" @click="loadData">
@@ -403,14 +397,40 @@ onMounted(() => {
 
 <style scoped>
 .tools-page {
-  padding: 16px;
+  height: calc(100vh - 88px);
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+.tools-page :deep(.arco-card) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+.tools-page :deep(.arco-card-header) {
+  display: none;
+}
+
+.tools-page :deep(.arco-card-body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.tools-page :deep(.arco-table-wrapper) {
+  overflow: hidden;
 }
 
 .filter-section {
+  flex-shrink: 0;
   margin-bottom: 16px;
   padding: 12px 16px;
   background: #f7f8fa;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 .tool-description {

@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 <template>
   <div class="microservice-page">
-    <a-card>
-      <template #title>
-        <a-space>
-          <icon-cloud />
-          <span>微服务管理</span>
-        </a-space>
-      </template>
+    <a-card :bordered="false">
       <template #extra>
         <a-button type="primary" @click="showCreateModal">
           <template #icon><icon-plus /></template>
@@ -50,10 +44,11 @@
               <template #icon><icon-check-circle /></template>
               检查
             </a-button>
-            <a-button type="text" size="small" @click="showEditModal(record)">
-              <template #icon><icon-edit /></template>
-              编辑
-            </a-button>
+            <a-tooltip content="编辑">
+              <a-button type="text" size="small" @click="showEditModal(record)">
+                <template #icon><icon-edit /></template>
+              </a-button>
+            </a-tooltip>
             <a-popconfirm content="确定要删除该微服务吗？" @ok="handleDelete(record.id)">
               <a-button type="text" status="danger" size="small">
                 <template #icon><icon-delete /></template>
@@ -101,6 +96,7 @@
       :title="`${currentMicroservice?.name || ''} - 工具管理`"
       :width="900"
       :footer="false"
+      class="tools-modal"
     >
       <a-tabs default-active-key="binded">
         <a-tab-pane key="binded" title="已绑定工具">
@@ -185,14 +181,21 @@ import type {
 } from '@/types'
 
 const columns: TableColumn[] = [
-  { title: '服务名称', dataIndex: 'name', slotName: 'name', width: 150 },
+  {
+    title: '服务名称',
+    dataIndex: 'name',
+    slotName: 'name',
+    width: 150,
+    ellipsis: true,
+    tooltip: true
+  },
   { title: 'HTTP地址', dataIndex: 'http_base_url', ellipsis: true, tooltip: true },
   { title: '描述', dataIndex: 'description', ellipsis: true, tooltip: true },
-  { title: '业务线', dataIndex: 'business_line', slotName: 'businessLine', width: 120 },
-  { title: '健康状态', dataIndex: 'health_status', slotName: 'healthStatus', width: 100 },
-  { title: '工具数', dataIndex: 'tool_count', slotName: 'toolCount', width: 80 },
-  { title: '状态', dataIndex: 'status', slotName: 'status', width: 80 },
-  { title: '操作', slotName: 'operations', width: 180 }
+  { title: '业务线', dataIndex: 'business_line', slotName: 'businessLine', width: 100 },
+  { title: '健康状态', dataIndex: 'health_status', slotName: 'healthStatus', width: 80 },
+  { title: '工具数', dataIndex: 'tool_count', slotName: 'toolCount', width: 70 },
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 70 },
+  { title: '操作', slotName: 'operations', width: 140 }
 ]
 
 const toolColumns: TableColumn[] = [
@@ -441,11 +444,50 @@ onMounted(() => {
 
 <style scoped>
 .microservice-page {
-  padding: 16px;
+  height: calc(100vh - 88px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.microservice-page :deep(.arco-card) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.microservice-page :deep(.arco-card-body) {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.microservice-page :deep(.arco-card-header) {
+  display: none;
+}
+
+.microservice-page :deep(.arco-table-container) {
+  overflow-x: auto;
 }
 
 .call-status {
   font-size: 16px;
   cursor: pointer;
+}
+
+.tools-modal :deep(.arco-modal-body) {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.tools-modal :deep(.arco-tabs-content) {
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+}
+
+.tools-modal :deep(.arco-table-body) {
+  max-height: 350px !important;
+  overflow-y: auto !important;
 }
 </style>

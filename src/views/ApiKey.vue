@@ -2,64 +2,18 @@
   <div class="apikey-page">
     <!-- 标签页切换 -->
     <a-tabs v-model:active-key="activeTab" class="main-tabs">
-      <!-- 用户API Key -->
-      <a-tab-pane key="user">
-        <template #title>
-          <icon-user /> 用户API Key
-        </template>
-        <a-card>
-          <template #title>
-            <div class="card-title">
-              <span>用户API Key管理</span>
-              <a-button type="primary" @click="showCreateModal('user')">
-                <template #icon><icon-plus /></template>
-                创建用户Key
-              </a-button>
-            </div>
-          </template>
-          <a-table
-            :columns="userColumns"
-            :data="userKeys"
-            :loading="loading"
-            :pagination="false"
-            row-key="id"
-          >
-            <template #status="{ record }">
-              <a-tag :color="record.status === 1 ? 'green' : 'red'">
-                {{ record.status === 1 ? '启用' : '禁用' }}
-              </a-tag>
-            </template>
-            <template #actions="{ record }">
-              <a-button type="text" size="small" @click="copyKey(record.api_key)">
-                复制
-              </a-button>
-              <a-button
-                type="text"
-                size="small"
-                status="danger"
-                @click="deleteKey('user', record.id)"
-              >
-                删除
-              </a-button>
-            </template>
-          </a-table>
-        </a-card>
-      </a-tab-pane>
-
       <!-- 网关API Key -->
       <a-tab-pane key="gateway">
         <template #title>
-          <icon-safe /> 网关API Key
+          <icon-safe />
+          网关API Key
         </template>
-        <a-card>
-          <template #title>
-            <div class="card-title">
-              <span>网关API Key管理</span>
-              <a-button type="primary" @click="showCreateModal('gateway')">
-                <template #icon><icon-plus /></template>
-                创建网关Key
-              </a-button>
-            </div>
+        <a-card :bordered="false">
+          <template #extra>
+            <a-button type="primary" @click="showCreateModal('gateway')">
+              <template #icon><icon-plus /></template>
+              创建网关Key
+            </a-button>
           </template>
           <a-table
             :columns="gatewayColumns"
@@ -73,10 +27,13 @@
                 {{ record.status === 1 ? '启用' : '禁用' }}
               </a-tag>
             </template>
+            <template #api_key="{ record }">
+              <a-tooltip :content="record.api_key">
+                <span class="masked-key">{{ maskKey(record.api_key) }}</span>
+              </a-tooltip>
+            </template>
             <template #actions="{ record }">
-              <a-button type="text" size="small" @click="copyKey(record.api_key)">
-                复制
-              </a-button>
+              <a-button type="text" size="small" @click="copyKey(record.api_key)">复制</a-button>
               <a-button
                 type="text"
                 size="small"
@@ -89,14 +46,59 @@
           </a-table>
         </a-card>
       </a-tab-pane>
+
+      <!-- LLM API Key -->
+      <a-tab-pane key="user">
+        <template #title>
+          <icon-user />
+          LLM API Key
+        </template>
+        <a-card :bordered="false">
+          <template #extra>
+            <a-button type="primary" @click="showCreateModal('user')">
+              <template #icon><icon-plus /></template>
+              创建LLM Key
+            </a-button>
+          </template>
+          <a-table
+            :columns="userColumns"
+            :data="userKeys"
+            :loading="loading"
+            :pagination="false"
+            row-key="id"
+          >
+            <template #status="{ record }">
+              <a-tag :color="record.status === 1 ? 'green' : 'red'">
+                {{ record.status === 1 ? '启用' : '禁用' }}
+              </a-tag>
+            </template>
+            <template #api_key="{ record }">
+              <a-tooltip :content="record.api_key">
+                <span class="masked-key">{{ maskKey(record.api_key) }}</span>
+              </a-tooltip>
+            </template>
+            <template #actions="{ record }">
+              <a-button type="text" size="small" @click="copyKey(record.api_key)">复制</a-button>
+              <a-button
+                type="text"
+                size="small"
+                status="danger"
+                @click="deleteKey('user', record.id)"
+              >
+                删除
+              </a-button>
+            </template>
+          </a-table>
+        </a-card>
+      </a-tab-pane>
     </a-tabs>
 
     <!-- 创建弹窗 -->
     <a-modal
       v-model:visible="createModalVisible"
-      :title="createType === 'user' ? '创建用户API Key' : '创建网关API Key'"
-      @ok="handleCreate"
+      :title="createType === 'user' ? '创建LLM API Key' : '创建网关API Key'"
       :ok-loading="creating"
+      @ok="handleCreate"
     >
       <a-form :model="createForm" layout="vertical">
         <a-form-item label="网关ID" required>
@@ -129,7 +131,7 @@ import { ref, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { IconUser, IconSafe, IconPlus } from '@arco-design/web-vue/es/icon'
 
-const activeTab = ref('user')
+const activeTab = ref('gateway')
 const loading = ref(false)
 const creating = ref(false)
 const createModalVisible = ref(false)
@@ -137,8 +139,8 @@ const createType = ref<'user' | 'gateway'>('user')
 
 const userColumns = [
   { title: 'ID', dataIndex: 'id', width: 80 },
-  { title: '网关ID', dataIndex: 'gateway_id', width: 150 },
-  { title: 'API Key', dataIndex: 'api_key', ellipsis: true },
+  { title: '名称', dataIndex: 'gateway_id', width: 150 },
+  { title: 'LLM API Key', slotName: 'api_key', ellipsis: true },
   { title: '额度/小时', dataIndex: 'rate_limit', width: 100 },
   { title: '过期时间', dataIndex: 'expire_time', width: 180 },
   { title: '状态', slotName: 'status', width: 80 },
@@ -148,7 +150,7 @@ const userColumns = [
 const gatewayColumns = [
   { title: 'ID', dataIndex: 'id', width: 80 },
   { title: '网关ID', dataIndex: 'gateway_id', width: 150 },
-  { title: 'API Key', dataIndex: 'api_key', ellipsis: true },
+  { title: '网关API Key', slotName: 'api_key', ellipsis: true },
   { title: '额度/小时', dataIndex: 'rate_limit', width: 100 },
   { title: '过期时间', dataIndex: 'expire_time', width: 180 },
   { title: '状态', slotName: 'status', width: 80 },
@@ -194,6 +196,13 @@ const copyKey = (key: string) => {
   Message.success('已复制到剪贴板')
 }
 
+const maskKey = (key: string): string => {
+  if (key.length <= 8) {
+    return '*'.repeat(key.length)
+  }
+  return key.slice(0, 4) + '*'.repeat(key.length - 8) + key.slice(-4)
+}
+
 const deleteKey = async (type: string, id: number) => {
   // TODO: 调用API删除
   Message.success('删除成功')
@@ -207,7 +216,7 @@ const loadData = async () => {
   userKeys.value = [
     {
       id: 1,
-      gateway_id: 'gateway_001',
+      gateway_id: 'MiniMax M2.7',
       api_key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
       rate_limit: 1000,
       expire_time: '2025-12-31 23:59:59',
@@ -234,18 +243,32 @@ onMounted(() => {
 
 <style scoped>
 .apikey-page {
-  height: 100%;
+  height: calc(100vh - 88px);
 }
 
 .main-tabs {
   background: #fff;
-  border-radius: 4px;
+  border-radius: 12px;
   padding: 16px;
+  height: 100%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.card-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.main-tabs :deep(.arco-card) {
+  border: none;
+}
+
+.main-tabs :deep(.arco-card-header) {
+  display: none;
+}
+
+.masked-key {
+  font-family: 'Consolas', 'Monaco', monospace;
+  cursor: pointer;
+  color: #86909c;
+}
+
+.masked-key:hover {
+  color: #165dff;
 }
 </style>

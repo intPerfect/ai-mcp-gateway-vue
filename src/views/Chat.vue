@@ -1,311 +1,278 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 <template>
   <div class="chat-page">
-    <a-row :gutter="16">
-      <!-- 配置面板 -->
-      <a-col :span="6">
-        <a-card class="config-card">
-          <template #title>
-            <a-space>
-              <icon-settings />
-              <span>配置</span>
-            </a-space>
-          </template>
-
-          <a-form :model="configForm" layout="vertical">
-            <a-form-item label="后端地址">
-              <a-input v-model="configForm.apiBaseUrl" placeholder="http://localhost:8777" />
-            </a-form-item>
-            <a-form-item label="网关API Key">
-              <a-input-password v-model="configForm.gatewayKey" placeholder="输入网关API Key" />
-            </a-form-item>
-            <a-form-item label="LLM API Key">
-              <a-input-password
-                v-model="configForm.llmKey"
-                placeholder="输入LLM API Key (MiniMax)"
-              />
-            </a-form-item>
-
-            <!-- 微服务选择 -->
-            <a-form-item label="选择微服务">
-              <a-select
-                v-model="configForm.selectedMicroservices"
-                multiple
-                placeholder="选择要连接的微服务"
-                :disabled="connected"
-                allow-clear
-              >
-                <a-option
-                  v-for="ms in microserviceList"
-                  :key="ms.id"
-                  :value="ms.id"
-                  :label="ms.name"
-                >
-                  <a-space>
-                    <span>{{ ms.name }}</span>
-                    <a-tag v-if="ms.health_status === 'healthy'" color="green" size="small">
-                      健康
-                    </a-tag>
-                    <a-tag v-else-if="ms.health_status === 'unhealthy'" color="red" size="small">
-                      异常
-                    </a-tag>
-                    <a-tag v-else color="gray" size="small">未知</a-tag>
-                  </a-space>
-                </a-option>
-              </a-select>
-            </a-form-item>
-
-            <a-form-item>
-              <a-button
-                v-if="!connected"
-                type="primary"
-                long
-                :loading="connecting"
-                @click="connect"
-              >
-                <template #icon><icon-link /></template>
-                连接
-              </a-button>
-              <a-button v-else type="outline" status="danger" long @click="disconnect">
-                <template #icon><icon-close /></template>
-                断开
-              </a-button>
-            </a-form-item>
-          </a-form>
-
-          <a-divider>可用工具</a-divider>
-          <div v-if="!connected" class="tool-tags">
-            <a-tag>请先连接</a-tag>
-          </div>
-          <div v-else-if="tools.length === 0" class="tool-tags">
-            <a-tag>暂无工具</a-tag>
-          </div>
-          <div v-else class="tools-grouped">
-            <a-collapse
-              :default-active-key="Object.keys(toolsByGroup)"
-              expand-icon-position="right"
-            >
-              <a-collapse-item
-                v-for="(toolList, groupName) in toolsByGroup"
-                :key="groupName"
-                :header="`${groupName} (${toolList.length})`"
-                :name="groupName"
-              >
-                <div class="tool-tags-group">
-                  <a-tag v-for="tool in toolList" :key="tool.name" color="arcoblue">
-                    {{ tool.name }}
-                  </a-tag>
-                </div>
-              </a-collapse-item>
-            </a-collapse>
-          </div>
-        </a-card>
-      </a-col>
-
-      <!-- 对话区域 -->
-      <a-col :span="18">
-        <a-card class="chat-card">
-          <template #title>
-            <a-space>
-              <icon-message />
-              <span>对话测试</span>
-              <a-tag v-if="connected" color="green" size="small">已连接</a-tag>
-              <a-tag v-else color="red" size="small">未连接</a-tag>
-            </a-space>
-          </template>
-          <template #extra>
-            <a-button type="text" :disabled="messages.length === 0" @click="clearChat">
-              <template #icon><icon-delete /></template>
-              清空
-            </a-button>
-          </template>
-
-          <!-- 消息列表 -->
-          <div ref="messageListRef" class="message-list">
-            <div v-if="messages.length === 0" class="empty-chat">
-              <icon-message size="48" />
-              <p>开始对话吧</p>
-            </div>
-            <div v-for="(msg, index) in messages" :key="index" :class="['message-item', msg.role]">
-              <div class="message-avatar">
-                <icon-user v-if="msg.role === 'user'" />
-                <icon-robot v-else />
-              </div>
-              <div class="message-content">
-                <div class="message-header">
-                  <span class="message-role">{{ msg.role === 'user' ? '用户' : 'AI' }}</span>
-                  <span class="message-time">{{ msg.time }}</span>
-                  <!-- AI消息流式输出时显示加载状态 -->
-                  <a-spin v-if="msg.role === 'assistant' && msg.streaming" size="14" />
-                </div>
-                <div class="message-body">
-                  <template v-if="msg.type === 'tool_call'">
-                    <div class="tool-call">
-                      <div class="tool-call-header">
-                        <a-tag color="orange" size="small">
-                          <icon-tool size="14" />
-                          工具调用
-                        </a-tag>
-                        <span class="tool-name">{{ msg.tool }}</span>
-                        <a-tag
-                          v-if="msg.status === 'preparing'"
-                          color="gray"
-                          size="small"
-                          class="status-tag"
-                        >
-                          准备中
-                        </a-tag>
-                        <a-tag
-                          v-else-if="msg.status === 'executing'"
-                          color="arcoblue"
-                          size="small"
-                          class="status-tag"
-                        >
-                          执行中
-                        </a-tag>
-                        <a-tag
-                          v-else-if="msg.status === 'completed'"
-                          color="green"
-                          size="small"
-                          class="status-tag"
-                        >
-                          已完成
-                        </a-tag>
-                      </div>
-                      <div class="tool-call-content">
-                        <div class="tool-section">
-                          <div class="section-label">参数:</div>
-                          <pre class="tool-args">{{ msg.arguments || '无参数' }}</pre>
-                        </div>
-                        <div v-if="msg.result" class="tool-section">
-                          <div class="section-label">结果:</div>
-                          <pre class="tool-result">{{ msg.result }}</pre>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <!-- 显示 thinking 过程 -->
-                    <div v-if="msg.thinkingContent" class="thinking-block">
-                      <div class="thinking-header">
-                        <icon-mind-mapping size="14" />
-                        <span>思考过程</span>
-                        <a-button type="text" size="mini" @click="toggleThinking(index, 0)">
-                          {{ expandedThoughts[`${index}-0`] ? '收起' : '展开' }}
-                        </a-button>
-                      </div>
-                      <div v-if="expandedThoughts[`${index}-0`]" class="thinking-content">
-                        {{ msg.thinkingContent }}
-                      </div>
-                    </div>
-                    <!-- 只有当有内容时才显示 -->
-                    <div
-                      v-if="typeof msg.content === 'string' && msg.content.trim()"
-                      class="text-content"
-                    >
-                      <MarkdownRender
-                        :content="msg.content"
-                        :streaming="msg.streaming"
-                        class="markdown-stream"
-                      />
-                    </div>
-                    <div v-else-if="typeof msg.content !== 'string'" class="blocks-content">
-                      <div
-                        v-for="(block, bIndex) in msg.content"
-                        :key="bIndex"
-                        class="content-block"
-                      >
-                        <div v-if="block.type === 'thinking'" class="thinking-block">
-                          <div class="thinking-header">
-                            <icon-mind-mapping size="14" />
-                            <span>思考过程</span>
-                            <a-button
-                              type="text"
-                              size="mini"
-                              @click="toggleThinking(index, bIndex)"
-                            >
-                              {{ expandedThoughts[`${index}-${bIndex}`] ? '收起' : '展开' }}
-                            </a-button>
-                          </div>
-                          <div
-                            v-if="expandedThoughts[`${index}-${bIndex}`]"
-                            class="thinking-content"
-                          >
-                            {{ block.thinking }}
-                          </div>
-                        </div>
-                        <div v-else-if="block.type === 'text'" class="text-block">
-                          <MarkdownRender :content="block.text" class="markdown-stream" />
-                        </div>
-                        <div v-else-if="block.type === 'tool_use'" class="tool-use-block">
-                          <a-tag color="purple" size="small">
-                            <icon-tool size="14" />
-                            工具调用: {{ block.name }}
-                          </a-tag>
-                        </div>
-                        <div v-else-if="block.type === 'tool_result'" class="tool-result-block">
-                          <div class="result-header">
-                            <icon-check-circle size="14" />
-                            <span>工具结果</span>
-                          </div>
-                          <pre>{{ block.content }}</pre>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 输入区域 -->
-          <div class="input-area">
-            <a-textarea
-              v-model="inputMessage"
-              placeholder="输入消息..."
-              :disabled="!connected"
-              :auto-size="{ minRows: 2, maxRows: 4 }"
-              @press-enter="handleSend"
+    <!-- 左侧配置面板 - 固定 -->
+    <div class="config-panel">
+      <a-card class="config-card" :bordered="false">
+        <template #title>
+          <span class="card-title">配置</span>
+        </template>
+        <a-form :model="configForm" layout="vertical">
+          <a-form-item label="后端地址">
+            <a-input v-model="configForm.apiBaseUrl" placeholder="http://localhost:8777" />
+          </a-form-item>
+          <a-form-item label="网关API Key">
+            <a-input-password v-model="configForm.gatewayKey" placeholder="输入网关API Key" />
+          </a-form-item>
+          <a-form-item label="LLM API Key">
+            <a-input-password
+              v-model="configForm.llmKey"
+              placeholder="输入LLM API Key (MiniMax M2.7)"
             />
-            <div class="input-actions">
-              <a-space>
-                <span class="char-count">{{ inputMessage.length }} 字符</span>
-              </a-space>
-              <a-button
-                type="primary"
-                :disabled="!connected || !inputMessage.trim()"
-                :loading="sending"
-                @click="handleSend"
-              >
-                <template #icon><icon-send /></template>
-                发送
-              </a-button>
-            </div>
-            <!-- 推荐问题卡片 - 发送按钮下方 -->
-            <div v-if="connected" class="suggestions-block">
-              <div class="suggestions-header">
-                <span class="suggestions-title">猜你想问</span>
-                <a-button type="text" size="small" class="refresh-btn" @click="refreshQuestions">
-                  <icon-refresh :class="{ refreshing: isRefreshing }" />
-                  <span>换一换</span>
-                </a-button>
+          </a-form-item>
+
+          <!-- 微服务选择 -->
+          <a-form-item label="选择微服务">
+            <a-select
+              v-model="configForm.selectedMicroservices"
+              multiple
+              placeholder="选择要连接的微服务"
+              :disabled="connected"
+              allow-clear
+            >
+              <a-option v-for="ms in microserviceList" :key="ms.id" :value="ms.id" :label="ms.name">
+                <a-space>
+                  <span>{{ ms.name }}</span>
+                  <a-tag v-if="ms.health_status === 'healthy'" color="green" size="small">
+                    健康
+                  </a-tag>
+                  <a-tag v-else-if="ms.health_status === 'unhealthy'" color="red" size="small">
+                    异常
+                  </a-tag>
+                  <a-tag v-else color="gray" size="small">未知</a-tag>
+                </a-space>
+              </a-option>
+            </a-select>
+          </a-form-item>
+
+          <a-form-item>
+            <a-button
+              v-if="!connected"
+              type="primary"
+              long
+              :loading="connecting"
+              :disabled="configForm.selectedMicroservices.length === 0"
+              @click="connect"
+            >
+              <template #icon><icon-link /></template>
+              连接
+            </a-button>
+            <a-button v-else type="outline" status="danger" long @click="disconnect">
+              <template #icon><icon-close /></template>
+              断开连接
+            </a-button>
+          </a-form-item>
+        </a-form>
+
+        <a-divider style="margin: 8px 0" />
+        <div v-if="!connected" class="tool-tags">
+          <a-tag>请先连接</a-tag>
+        </div>
+        <div v-else-if="tools.length === 0" class="tool-tags">
+          <a-tag>暂无工具</a-tag>
+        </div>
+        <div v-else class="tools-grouped">
+          <a-collapse :default-active-key="Object.keys(toolsByGroup)" expand-icon-position="right">
+            <a-collapse-item
+              v-for="(toolList, groupName) in toolsByGroup"
+              :key="groupName"
+              :header="`${groupName} (${toolList.length})`"
+              :name="groupName"
+            >
+              <div class="tool-tags-group">
+                <a-tag v-for="tool in toolList" :key="tool.name" color="arcoblue">
+                  {{ tool.name }}
+                </a-tag>
               </div>
-              <div class="suggestions-list">
-                <div
-                  v-for="q in displayedQuestions"
-                  :key="q.text"
-                  class="suggestion-item"
-                  @click="fillMessage(q.text)"
-                >
-                  <span class="suggestion-text">{{ q.text }}</span>
-                  <icon-right class="suggestion-arrow" />
-                </div>
+            </a-collapse-item>
+          </a-collapse>
+        </div>
+      </a-card>
+    </div>
+
+    <!-- 右侧对话区域 - 可滚动 -->
+    <div class="chat-area">
+      <a-card class="chat-card" :bordered="false">
+        <template #extra>
+          <a-button type="text" :disabled="messages.length === 0" @click="clearChat">
+            <template #icon><icon-delete /></template>
+            清空
+          </a-button>
+        </template>
+
+        <!-- 消息列表 -->
+        <div ref="messageListRef" class="message-list">
+          <div v-if="messages.length === 0" class="empty-chat">
+            <icon-message size="48" />
+            <p>开始对话吧</p>
+          </div>
+          <div v-for="(msg, index) in messages" :key="index" :class="['message-item', msg.role]">
+            <div class="message-avatar">
+              <icon-user v-if="msg.role === 'user'" />
+              <icon-robot v-else />
+            </div>
+            <div class="message-content">
+              <div class="message-header">
+                <span class="message-role">{{ msg.role === 'user' ? '用户' : 'AI' }}</span>
+                <span class="message-time">{{ msg.time }}</span>
+                <!-- AI消息流式输出时显示加载状态 -->
+                <a-spin v-if="msg.role === 'assistant' && msg.streaming" size="14" />
+              </div>
+              <div class="message-body">
+                <template v-if="msg.type === 'tool_call'">
+                  <div class="tool-call">
+                    <div class="tool-call-header">
+                      <a-tag color="orange" size="small">
+                        <icon-tool size="14" />
+                        工具调用
+                      </a-tag>
+                      <span class="tool-name">{{ msg.tool }}</span>
+                      <a-tag
+                        v-if="msg.status === 'preparing'"
+                        color="gray"
+                        size="small"
+                        class="status-tag"
+                      >
+                        准备中
+                      </a-tag>
+                      <a-tag
+                        v-else-if="msg.status === 'executing'"
+                        color="arcoblue"
+                        size="small"
+                        class="status-tag"
+                      >
+                        执行中
+                      </a-tag>
+                      <a-tag
+                        v-else-if="msg.status === 'completed'"
+                        color="green"
+                        size="small"
+                        class="status-tag"
+                      >
+                        已完成
+                      </a-tag>
+                    </div>
+                    <div class="tool-call-content">
+                      <div class="tool-section">
+                        <div class="section-label">参数:</div>
+                        <pre class="tool-args">{{ msg.arguments || '无参数' }}</pre>
+                      </div>
+                      <div v-if="msg.result" class="tool-section">
+                        <div class="section-label">结果:</div>
+                        <pre class="tool-result">{{ msg.result }}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <template v-else>
+                  <!-- 显示 thinking 过程 -->
+                  <div v-if="msg.thinkingContent" class="thinking-block">
+                    <div class="thinking-header">
+                      <icon-mind-mapping size="14" />
+                      <span>思考过程</span>
+                      <a-button type="text" size="mini" @click="toggleThinking(index, 0)">
+                        {{ expandedThoughts[`${index}-0`] ? '收起' : '展开' }}
+                      </a-button>
+                    </div>
+                    <div v-if="expandedThoughts[`${index}-0`]" class="thinking-content">
+                      {{ msg.thinkingContent }}
+                    </div>
+                  </div>
+                  <!-- 只有当有内容时才显示 -->
+                  <div
+                    v-if="typeof msg.content === 'string' && msg.content.trim()"
+                    class="text-content"
+                  >
+                    <MarkdownRender
+                      :content="msg.content"
+                      :streaming="msg.streaming"
+                      class="markdown-stream"
+                    />
+                  </div>
+                  <div v-else-if="typeof msg.content !== 'string'" class="blocks-content">
+                    <div v-for="(block, bIndex) in msg.content" :key="bIndex" class="content-block">
+                      <div v-if="block.type === 'thinking'" class="thinking-block">
+                        <div class="thinking-header">
+                          <icon-mind-mapping size="14" />
+                          <span>思考过程</span>
+                          <a-button type="text" size="mini" @click="toggleThinking(index, bIndex)">
+                            {{ expandedThoughts[`${index}-${bIndex}`] ? '收起' : '展开' }}
+                          </a-button>
+                        </div>
+                        <div v-if="expandedThoughts[`${index}-${bIndex}`]" class="thinking-content">
+                          {{ block.thinking }}
+                        </div>
+                      </div>
+                      <div v-else-if="block.type === 'text'" class="text-block">
+                        <MarkdownRender :content="block.text" class="markdown-stream" />
+                      </div>
+                      <div v-else-if="block.type === 'tool_use'" class="tool-use-block">
+                        <a-tag color="purple" size="small">
+                          <icon-tool size="14" />
+                          工具调用: {{ block.name }}
+                        </a-tag>
+                      </div>
+                      <div v-else-if="block.type === 'tool_result'" class="tool-result-block">
+                        <div class="result-header">
+                          <icon-check-circle size="14" />
+                          <span>工具结果</span>
+                        </div>
+                        <pre>{{ block.content }}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
-        </a-card>
-      </a-col>
-    </a-row>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="input-area">
+          <!-- 推荐问题卡片 - 输入框上方 -->
+          <div v-if="connected && showSuggestions" class="suggestions-block">
+            <div class="suggestions-header">
+              <span class="suggestions-title">猜你想问</span>
+              <a-button type="text" size="small" class="refresh-btn" @click="refreshQuestions">
+                <icon-refresh :class="{ refreshing: isRefreshing }" />
+                <span>换一换</span>
+              </a-button>
+            </div>
+            <div class="suggestions-list">
+              <div
+                v-for="q in displayedQuestions"
+                :key="q.text"
+                class="suggestion-item"
+                @click="fillMessage(q.text)"
+              >
+                <span class="suggestion-text">{{ q.text }}</span>
+                <icon-right class="suggestion-arrow" />
+              </div>
+            </div>
+          </div>
+          <a-textarea
+            v-model="inputMessage"
+            placeholder="输入消息..."
+            :disabled="!connected"
+            :auto-size="{ minRows: 2, maxRows: 2 }"
+            class="input-field"
+            @press-enter="handleSend"
+          />
+          <div class="input-actions">
+            <span class="char-count">{{ inputMessage.length }} 字符</span>
+            <a-button
+              type="primary"
+              :disabled="!connected || !inputMessage.trim()"
+              :loading="sending"
+              @click="handleSend"
+            >
+              <template #icon><icon-send /></template>
+              发送
+            </a-button>
+          </div>
+        </div>
+      </a-card>
+    </div>
   </div>
 </template>
 
@@ -313,7 +280,6 @@
 import { ref, reactive, computed, nextTick, onUnmounted, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import {
-  IconSettings,
   IconLink,
   IconClose,
   IconMessage,
@@ -384,6 +350,7 @@ const connected = ref(false)
 const connecting = ref(false)
 const loading = ref(false)
 const sending = ref(false)
+const showSuggestions = ref(true) // 是否显示推荐问题
 const inputMessage = ref('')
 const messages = ref<MessageItem[]>([])
 const tools = ref<ToolInfo[]>([])
@@ -729,6 +696,7 @@ const handleWsMessage = (data: any) => {
       }
       loading.value = false
       sending.value = false
+      showSuggestions.value = true // 消息结束后显示推荐问题
       scrollToBottom()
       break
 
@@ -745,6 +713,7 @@ const handleWsMessage = (data: any) => {
       Message.error('错误: ' + data.message)
       loading.value = false
       sending.value = false
+      showSuggestions.value = true // 出错后显示推荐问题
       // 清除流式状态，移除空的loading气泡
       {
         const lastMsg = messages.value[messages.value.length - 1]
@@ -779,6 +748,7 @@ const handleSend = () => {
   inputMessage.value = ''
   sending.value = true
   loading.value = true
+  showSuggestions.value = false // 发送后隐藏推荐问题
 
   // 重置当前轮次的 thinking 归宿（新的对话轮次）
   thinkingMsgIndex.value = -1
@@ -834,30 +804,11 @@ const formatTime = (date: Date) => {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-// 快捷测试问题 - 多工具调用场景
+// 快捷测试问题 - 展示Agent多工具调用能力
 const allQuestions = [
-  // 分类分析类
   { text: '统计各分类商品数量，找出商品最多的分类' },
-  { text: '分析销售数据，给出补货和促销建议' },
-  { text: '对比各分类的平均价格区间' },
-  // 商品查询类
-  { text: '查看热销榜单Top5的详情和库存' },
-  { text: '查找库存不足商品，推荐价格相近替代品' },
-  { text: '搜索价格在100-500元之间的热销商品' },
-  { text: '查找评分最高的商品及其评价详情' },
-  // 订单操作类
-  { text: '帮商品ID为1下单：查库存、算价格、创建订单' },
-  { text: '查询最近订单的物流状态' },
-  { text: '帮用户下单一件热销商品并确认库存' },
-  // 数据分析类
-  { text: '分析当前库存状态，给出预警建议' },
-  { text: '统计今日销售额和订单量' },
-  { text: '找出利润率最高的商品分类' },
-  { text: '对比本月与上月销售趋势' },
-  // 综合任务类
-  { text: '推荐三款性价比最高的商品' },
-  { text: '查找用户最常购买的商品组合' },
-  { text: '分析哪些商品适合做促销活动' }
+  { text: '帮我下单iPhone 15 Pro：查库存、算价格、创建订单' },
+  { text: '查找库存不足的商品，推荐价格相近的替代品' }
 ]
 
 // 当前显示的问题
@@ -869,7 +820,7 @@ const refreshQuestions = () => {
   isRefreshing.value = true
   setTimeout(() => {
     const shuffled = [...allQuestions].sort(() => Math.random() - 0.5)
-    displayedQuestions.value = shuffled.slice(0, 5)
+    displayedQuestions.value = shuffled.slice(0, 3)
     isRefreshing.value = false
   }, 300)
 }
@@ -889,12 +840,58 @@ onUnmounted(() => {
 
 <style scoped>
 .chat-page {
-  padding: 16px;
-  height: calc(100vh - 100px);
+  display: flex;
+  height: calc(100vh - 88px);
+  gap: 16px;
+  overflow: hidden; /* 防止页面滚动 */
+}
+
+/* 左侧配置面板 - 固定悬挂 */
+.config-panel {
+  width: 280px;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .config-card {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.config-card :deep(.arco-card-body) {
+  flex: 1;
+  overflow: hidden;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.config-card :deep(.arco-form) {
+  flex-shrink: 0;
+}
+
+.config-card :deep(.arco-form-item) {
+  margin-bottom: 10px;
+}
+
+.config-card :deep(.arco-form-item-label) {
+  padding-bottom: 4px;
+}
+
+.config-card :deep(.arco-divider) {
+  margin: 6px 0;
+  flex-shrink: 0;
+  border-color: #e5e6eb;
+}
+
+.tools-grouped {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin-top: 6px;
 }
 
 .tool-tags {
@@ -903,9 +900,9 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.tools-grouped {
-  max-height: 300px;
+.tools-grouped :deep(.arco-collapse) {
   overflow-y: auto;
+  max-height: 180px;
 }
 
 .tools-grouped :deep(.arco-collapse-item) {
@@ -913,13 +910,14 @@ onUnmounted(() => {
 }
 
 .tools-grouped :deep(.arco-collapse-item-header) {
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: #f7f8fa;
   border-radius: 4px;
+  font-size: 12px;
 }
 
 .tools-grouped :deep(.arco-collapse-item-content) {
-  padding: 8px;
+  padding: 6px;
 }
 
 .tool-tags-group {
@@ -928,18 +926,39 @@ onUnmounted(() => {
   gap: 6px;
 }
 
-.chat-card {
+/* 右侧对话区域 */
+.chat-area {
+  flex: 1;
+  min-width: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
+.chat-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.chat-card :deep(.arco-card-header) {
+  display: none;
+}
+
+.chat-card :deep(.arco-card-body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .message-list {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
   padding: 16px;
-  min-height: 400px;
-  max-height: calc(100vh - 300px);
+  overflow-y: auto; /* 消息列表可滚动 */
 }
 
 .empty-chat {
@@ -947,7 +966,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  height: 300px;
   color: #86909c;
 }
 
@@ -1027,14 +1046,14 @@ onUnmounted(() => {
 .tool-call {
   padding: 8px;
   background: #fff7e6;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 .tool-args {
   margin: 8px 0;
-  padding: 8px;
-  background: #ffe7d6;
-  border-radius: 4px;
+  padding: 10px 12px;
+  background: #fffbf0;
+  border-radius: 6px;
   font-size: 12px;
   overflow-x: auto;
 }
@@ -1045,9 +1064,9 @@ onUnmounted(() => {
 
 .tool-result pre {
   margin-top: 4px;
-  padding: 8px;
-  background: #d9f7be;
-  border-radius: 4px;
+  padding: 10px 12px;
+  background: #f6ffed;
+  border-radius: 6px;
   font-size: 12px;
   overflow-x: auto;
 }
@@ -1055,7 +1074,7 @@ onUnmounted(() => {
 .thinking-block {
   padding: 8px;
   background: #f0f5ff;
-  border-radius: 4px;
+  border-radius: 8px;
   margin-bottom: 8px;
 }
 
@@ -1069,9 +1088,9 @@ onUnmounted(() => {
 
 .thinking-content {
   margin-top: 8px;
-  padding: 8px;
-  background: #e6f4ff;
-  border-radius: 4px;
+  padding: 10px 12px;
+  background: #fff;
+  border-radius: 6px;
   font-size: 13px;
   white-space: pre-wrap;
 }
@@ -1083,15 +1102,29 @@ onUnmounted(() => {
 }
 
 .input-area {
-  border-top: 1px solid #e5e6eb;
   padding: 16px;
-  background: white;
+  background: #fafbfc;
+}
+
+.input-field {
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+}
+
+.input-field :deep(.arco-textarea) {
+  padding: 12px;
+}
+
+.input-field :deep(.arco-textarea-wrapper) {
+  border: none;
+  box-shadow: none;
 }
 
 .input-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
+  gap: 12px;
   margin-top: 8px;
 }
 
@@ -1298,7 +1331,9 @@ pre {
 
 /* 豆包风格推荐问题 */
 .suggestions-block {
-  padding-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 12px;
 }
 
 .suggestions-header {
@@ -1390,8 +1425,7 @@ pre {
 .tool-result-block {
   margin: 8px 0;
   background: #f6ffed;
-  border: 1px solid #b7eb8f;
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
 }
 

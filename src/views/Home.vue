@@ -5,8 +5,7 @@
       <div class="hero-content">
         <div class="hero-text">
           <h1>AI MCP Gateway</h1>
-          <p class="hero-subtitle">基于 Model Context Protocol 的智能网关管理系统</p>
-          <p class="hero-description">统一管理 AI 工具接口，提供安全可靠的工具调用能力</p>
+          <p class="hero-subtitle">基于 MCP 的 AI 工具网关</p>
         </div>
         <a-button type="primary" size="large" class="hero-button" @click="$router.push('/chat')">
           <template #icon><icon-message /></template>
@@ -149,7 +148,7 @@
             <p>创建用户 API Key 用于身份认证</p>
           </div>
         </div>
-        <div class="step-connector"></div>
+        <icon-right class="step-arrow" />
         <div class="guide-step">
           <div class="step-number">2</div>
           <div class="step-content">
@@ -157,7 +156,7 @@
             <p>通过 OpenAPI 导入微服务工具</p>
           </div>
         </div>
-        <div class="step-connector"></div>
+        <icon-right class="step-arrow" />
         <div class="guide-step">
           <div class="step-number">3</div>
           <div class="step-content">
@@ -207,8 +206,10 @@ onMounted(() => {
 
 <style scoped>
 .home {
-  padding: 0;
-  min-height: 100%;
+  height: calc(100vh - 88px);
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Hero Section */
@@ -216,9 +217,11 @@ onMounted(() => {
   position: relative;
   background: linear-gradient(135deg, #165dff 0%, #722ed1 50%, #9a4dff 100%);
   padding: 48px 32px;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(22, 93, 255, 0.2);
+  flex-shrink: 0;
 }
 
 .hero-content {
@@ -237,14 +240,8 @@ onMounted(() => {
 }
 
 .hero-subtitle {
-  color: rgba(255, 255, 255, 0.95);
-  font-size: 18px;
-  margin: 0 0 8px 0;
-}
-
-.hero-description {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
   margin: 0;
 }
 
@@ -252,9 +249,9 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.3);
   backdrop-filter: blur(4px);
-  font-size: 16px;
-  height: 48px;
-  padding: 0 32px;
+  font-size: 15px;
+  height: 42px;
+  padding: 0 28px;
 }
 
 .hero-button:hover {
@@ -303,8 +300,8 @@ onMounted(() => {
 .stats-section {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 @media (max-width: 768px) {
@@ -316,10 +313,10 @@ onMounted(() => {
 .stat-item {
   background: #fff;
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
 }
@@ -330,9 +327,9 @@ onMounted(() => {
 }
 
 .stat-icon-wrapper {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -340,7 +337,7 @@ onMounted(() => {
 }
 
 .stat-icon {
-  font-size: 24px;
+  font-size: 20px;
   color: #fff;
 }
 
@@ -350,25 +347,25 @@ onMounted(() => {
 }
 
 .stat-value {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #1d2129;
   line-height: 1.2;
 }
 
 .stat-label {
-  font-size: 13px;
+  font-size: 12px;
   color: #86909c;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* Features Section */
 .features-section {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .section-title {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
   color: #1d2129;
   margin: 0 0 16px 0;
@@ -395,14 +392,14 @@ onMounted(() => {
 .feature-card {
   background: #fff;
   border-radius: 12px;
-  padding: 24px;
+  padding: 20px;
   cursor: pointer;
   transition: all 0.25s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .feature-card:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   transform: translateY(-4px);
 }
 
@@ -467,7 +464,7 @@ onMounted(() => {
 .guide-section {
   background: #fff;
   border-radius: 12px;
-  padding: 24px;
+  padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
@@ -483,7 +480,7 @@ onMounted(() => {
     gap: 16px;
   }
 
-  .step-connector {
+  .step-arrow {
     display: none;
   }
 }
@@ -522,11 +519,10 @@ onMounted(() => {
   margin: 0;
 }
 
-.step-connector {
-  flex: 0 0 60px;
-  height: 2px;
-  background: linear-gradient(90deg, #165dff, #722ed1);
-  margin-top: 17px;
-  opacity: 0.3;
+.step-arrow {
+  color: #165dff;
+  font-size: 20px;
+  flex-shrink: 0;
+  align-self: center;
 }
 </style>
