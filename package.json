@@ -8,7 +8,11 @@
     "predev": "npm run kill-port",
     "dev": "vite",
     "build": "vue-tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.{js,ts,vue,json,css,scss}\"",
+    "lint:check": "eslint .",
+    "prepare": "husky"
   },
   "dependencies": {
     "@arco-design/web-vue": "^2.55.0",
@@ -21,9 +25,30 @@
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.5.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.1",
+    "@typescript-eslint/parser": "^8.57.1",
     "@vitejs/plugin-vue": "^5.0.4",
+    "eslint": "^10.1.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-vue": "^10.8.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1",
     "typescript": "^5.4.2",
+    "typescript-eslint": "^8.57.1",
     "vite": "^5.2.0",
     "vue-tsc": "^2.0.6"
+  },
+  "lint-staged": {
+    "*.{js,ts,vue}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,scss}": [
+      "prettier --write"
+    ]
   }
 }

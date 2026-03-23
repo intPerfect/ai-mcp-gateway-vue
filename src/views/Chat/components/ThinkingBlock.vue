@@ -3,33 +3,41 @@
     <div class="thinking-header">
       <icon-mind-mapping size="14" />
       <span>思考过程</span>
-      <a-button
-        type="text"
-        size="mini"
-        @click="toggleExpand"
-      >
-        {{ expanded ? '收起' : '展开' }}
+      <a-button type="text" size="mini" @click="toggleExpand">
+        {{ isExpanded ? '收起' : '展开' }}
       </a-button>
     </div>
-    <div v-if="expanded" class="thinking-content">
+    <div v-if="isExpanded" class="thinking-content">
       {{ content }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, watch } from 'vue'
 import { IconMindMapping } from '@arco-design/web-vue/es/icon'
 
 const props = defineProps<{
   content: string
-  defaultExpanded?: boolean
+  expanded?: boolean
 }>()
 
-const expanded = ref(props.defaultExpanded ?? false)
+const emit = defineEmits<{
+  toggle: []
+}>()
+
+const isExpanded = ref(props.expanded ?? false)
+
+watch(
+  () => props.expanded,
+  val => {
+    isExpanded.value = val ?? false
+  }
+)
 
 const toggleExpand = () => {
-  expanded.value = !expanded.value
+  isExpanded.value = !isExpanded.value
+  emit('toggle')
 }
 </script>
 

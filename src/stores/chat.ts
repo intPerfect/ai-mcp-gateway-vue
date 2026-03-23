@@ -3,45 +3,15 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import type { ChatMessage, ContentBlock, ToolInfo } from '@/types'
 
-// 消息内容块类型
-export interface ContentBlock {
-  type: 'text' | 'thinking' | 'tool_use' | 'tool_result'
-  text?: string
-  thinking?: string
-  id?: string
-  name?: string
-  input?: Record<string, unknown>
-  tool_use_id?: string
-  content?: string
-  is_error?: boolean
-}
-
-// 消息类型
-export interface Message {
-  role: 'user' | 'assistant'
-  content: string | ContentBlock[]
-  time: string
-  type?: 'tool_call' | 'text'
-  tool_id?: string
-  tool?: string
-  arguments?: string
-  result?: string
-  status?: 'preparing' | 'executing' | 'completed'
-  streaming?: boolean
-  thinkingContent?: string
-}
-
-// 工具信息
-export interface ToolInfo {
-  name: string
-  description: string
-  input_schema: Record<string, unknown>
-}
+// 重新导出类型以保持兼容
+export type { ContentBlock }
+export type { ChatMessage as Message }
 
 export const useChatStore = defineStore('chat', () => {
   // 状态
-  const messages = ref<Message[]>([])
+  const messages = ref<ChatMessage[]>([])
   const tools = ref<ToolInfo[]>([])
   const connected = ref(false)
   const connecting = ref(false)
@@ -58,7 +28,7 @@ export const useChatStore = defineStore('chat', () => {
   const toolCount = computed(() => tools.value.length)
 
   // 方法
-  function addMessage(message: Message) {
+  function addMessage(message: ChatMessage) {
     messages.value.push(message)
   }
 
@@ -66,13 +36,13 @@ export const useChatStore = defineStore('chat', () => {
     messages.value.splice(index, 1)
   }
 
-  function updateMessage(index: number, updates: Partial<Message>) {
+  function updateMessage(index: number, updates: Partial<ChatMessage>) {
     if (messages.value[index]) {
       Object.assign(messages.value[index], updates)
     }
   }
 
-  function getLastMessage(): Message | undefined {
+  function getLastMessage(): ChatMessage | undefined {
     return messages.value[messages.value.length - 1]
   }
 

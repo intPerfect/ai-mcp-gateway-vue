@@ -1,71 +1,56 @@
 /**
- * Config Store - 配置状态管理
+ * 配置 Store - 应用配置状态管理
  */
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-
-export interface ConfigForm {
-  apiBaseUrl: string
-  gatewayKey: string
-  llmKey: string
-}
+import { ref, watch } from 'vue'
+import { getStorage, setStorage } from '@/utils'
+import { DEFAULT_API_BASE_URL, DEFAULT_GATEWAY_KEY, STORAGE_KEYS } from '@/constants'
+import type { ChatConfigForm } from '@/types'
 
 export const useConfigStore = defineStore('config', () => {
-  // 状态
-  const apiBaseUrl = ref(`http://${window.location.hostname}:8777`)
-  const gatewayKey = ref('gw-test-api-key-001')
-  const llmKey = ref('')
+  // 从本地存储加载配置
+  const savedConfig = getStorage<ChatConfigForm>(STORAGE_KEYS.CONFIG)
 
-  // 计算属性
-  const isConfigured = computed(() => {
-    return gatewayKey.value.length > 0
+  // 状态
+  const config = ref<ChatConfigForm>(
+    savedConfig || {
+      apiBaseUrl: DEFAULT_API_BASE_URL,
+      gatewayKey: DEFAULT_GATEWAY_KEY,
+      llmKey: ''
+    }
+  )
+
+  // 主题
+  const theme = ref<'light' | 'dark'>(getStorage<'light' | 'dark'>(STORAGE_KEYS.THEME) || 'light')
+
+  // 监听配置变化，自动保存
+  watch(
+    config,
+    newVal => {
+      setStorage(STORAGE_KEYS.CONFIG, newVal)
+    },
+    { deep: true }
+  )
+
+  watch(theme, newVal => {
+    setStorage(STORAGE_KEYS.THEME, newVal)
+    // 应用主题
+    document.documentElement.setAttribute('data-theme', newVal)
   })
 
   // 方法
-  function setApiBaseUrl(url: string) {
-    apiBaseUrl.value = url
+  function updateConfig(newConfig: Partial<ChatConfigForm>) {
+    Object.assign(config.value, newConfig)
   }
 
-  function setGatewayKey(key: string) {
-    gatewayKey.value = key
-  }
-
-  function setLlmKey(key: string) {
-    llmKey.value = key
-  }
-
-  function updateConfig(config: Partial<ConfigForm>) {
-    if (config.apiBaseUrl !== undefined) {
-      apiBaseUrl.value = config.apiBaseUrl
-    }
-    if (config.gatewayKey !== undefined) {
-      gatewayKey.value = config.gatewayKey
-    }
-    if (config.llmKey !== undefined) {
-      llmKey.value = config.llmKey
-    }
-  }
-
-  function getConfig(): ConfigForm {
-    return {
-      apiBaseUrl: apiBaseUrl.value,
-      gatewayKey: gatewayKey.value,
-      llmKey: llmKey.value
-    }
+  function setTheme(newTheme: 'light' | 'dark') {
+    theme.value = newTheme
   }
 
   return {
-    // 状态
-    apiBaseUrl,
-    gatewayKey,
-    llmKey,
-    // 计算属性
-    isConfigured,
-    // 方法
-    setApiBaseUrl,
-    setGatewayKey,
-    setLlmKey,
+    config,
+    theme,
     updateConfig,
-    getConfig
+    setTheme
   }
 })
