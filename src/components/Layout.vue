@@ -23,9 +23,9 @@
           <template #icon><icon-home /></template>
           <span>首页</span>
         </a-menu-item>
-        <a-menu-item key="apikey">
+        <a-menu-item key="gateway">
           <template #icon><icon-safe /></template>
-          <span>API Key管理</span>
+          <span>网关管理</span>
         </a-menu-item>
         <a-menu-item key="microservice">
           <template #icon><icon-cloud /></template>
@@ -118,7 +118,7 @@ const selectedKeys = ref(['home'])
 
 const pageTitleMap: Record<string, string> = {
   home: '首页',
-  apikey: 'API Key管理',
+  gateway: '网关管理',
   microservice: '微服务管理',
   tools: '工具管理',
   chat: '对话测试'
@@ -131,7 +131,7 @@ const currentPageTitle = computed(() => {
 
 const routeKeyMap: Record<string, string> = {
   home: 'home',
-  apikey: 'apikey',
+  gateway: 'gateway',
   microservice: 'microservice',
   tools: 'tools',
   chat: 'chat'

@@ -8,7 +8,7 @@ const routes = [
     redirect: '/home',
     children: [
       { path: 'home', name: 'Home', component: () => import('../views/Home.vue') },
-      { path: 'apikey', name: 'ApiKey', component: () => import('../views/ApiKey.vue') },
+      { path: 'gateway', name: 'Gateway', component: () => import('../views/Gateway.vue') },
       {
         path: 'microservice',
         name: 'Microservice',

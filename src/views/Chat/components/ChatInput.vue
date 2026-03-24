@@ -1,16 +1,13 @@
 <template>
   <div class="chat-input">
-    <a-textarea
-      v-model="inputMessage"
-      placeholder="输入消息..."
-      :disabled="!connected"
-      :auto-size="{ minRows: 2, maxRows: 4 }"
-      @press-enter="handleSend"
-    />
-    <div class="input-actions">
-      <a-space>
-        <span class="char-count">{{ inputMessage.length }} 字符</span>
-      </a-space>
+    <div class="input-row">
+      <a-input
+        v-model="inputMessage"
+        placeholder="输入消息，按 Enter 发送..."
+        :disabled="!connected"
+        allow-clear
+        @press-enter="handleSend"
+      />
       <a-button
         type="primary"
         :disabled="!connected || !inputMessage.trim()"
@@ -18,7 +15,6 @@
         @click="handleSend"
       >
         <template #icon><icon-send /></template>
-        发送
       </a-button>
     </div>
 
@@ -47,7 +43,6 @@
 </template>
 
 <script setup lang="ts">
-/* global setTimeout */
 import { ref, onMounted } from 'vue'
 import { IconSend, IconRefresh, IconRight } from '@arco-design/web-vue/es/icon'
 import { SUGGESTED_QUESTIONS } from '@/constants'
@@ -77,7 +72,7 @@ const handleRefresh = () => {
   isRefreshing.value = true
   setTimeout(() => {
     const shuffled = [...SUGGESTED_QUESTIONS].sort(() => Math.random() - 0.5)
-    displayedQuestions.value = shuffled.slice(0, 5).map(item => ({ text: item.text }))
+    displayedQuestions.value = shuffled.slice(0, 2).map(item => ({ text: item.text }))
     isRefreshing.value = false
   }, 300)
 }
@@ -100,20 +95,22 @@ defineExpose({
 <style scoped>
 .chat-input {
   border-top: 1px solid #e5e6eb;
-  padding: 16px;
+  padding: 12px 16px;
   background: white;
 }
 
-.input-actions {
+.input-row {
   display: flex;
-  justify-content: space-between;
+  gap: 8px;
   align-items: center;
-  margin-top: 8px;
 }
 
-.char-count {
-  font-size: 12px;
-  color: #86909c;
+.input-row :deep(.arco-input-wrapper) {
+  flex: 1;
+}
+
+.input-row :deep(.arco-btn-primary) {
+  flex-shrink: 0;
 }
 
 /* 推荐问题样式 */
@@ -160,12 +157,12 @@ defineExpose({
 
 .suggestions-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
 }
 
 .suggestion-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   padding: 8px 12px;
   background: #f7f8fa;
@@ -174,8 +171,8 @@ defineExpose({
   cursor: pointer;
   transition: all 0.2s;
   user-select: none;
-  width: auto;
-  max-width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 
 .suggestion-item:hover {
@@ -192,6 +189,8 @@ defineExpose({
   color: #1d2129;
   line-height: 1.4;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .suggestion-arrow {

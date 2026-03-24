@@ -1,14 +1,13 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 <template>
   <div class="microservice-page">
+    <div class="page-header">
+      <span class="page-title">微服务管理</span>
+      <a-button type="primary" @click="showCreateModal">
+        <template #icon><icon-plus /></template>
+        新增微服务
+      </a-button>
+    </div>
     <a-card :bordered="false">
-      <template #extra>
-        <a-button type="primary" @click="showCreateModal">
-          <template #icon><icon-plus /></template>
-          新增微服务
-        </a-button>
-      </template>
-
       <a-table
         :columns="columns"
         :data="microserviceList"
@@ -151,16 +150,11 @@
 </template>
 
 <script setup lang="ts">
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, reactive, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import type { TableColumn } from '@arco-design/web-vue'
-import {
-  IconCloud,
-  IconPlus,
-  IconCheckCircle,
-  IconEdit,
-  IconDelete
-} from '@arco-design/web-vue/es/icon'
+import { IconPlus, IconCheckCircle, IconEdit, IconDelete } from '@arco-design/web-vue/es/icon'
 import {
   getMicroservices,
   createMicroservice,
@@ -474,6 +468,23 @@ onMounted(() => {
 .call-status {
   font-size: 16px;
   cursor: pointer;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.page-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1d2129;
 }
 
 .tools-modal :deep(.arco-modal-body) {

@@ -1,20 +1,19 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 <template>
   <div class="tools-page">
+    <div class="page-header">
+      <span class="page-title">工具管理</span>
+      <a-space>
+        <a-button type="primary" @click="loadData">
+          <template #icon><icon-refresh /></template>
+          刷新
+        </a-button>
+        <a-button type="primary" status="success" @click="showImportModal = true">
+          <template #icon><icon-upload /></template>
+          导入OpenAPI
+        </a-button>
+      </a-space>
+    </div>
     <a-card :bordered="false">
-      <template #extra>
-        <a-space>
-          <a-button type="primary" @click="loadData">
-            <template #icon><icon-refresh /></template>
-            刷新
-          </a-button>
-          <a-button type="primary" status="success" @click="showImportModal = true">
-            <template #icon><icon-upload /></template>
-            导入OpenAPI
-          </a-button>
-        </a-space>
-      </template>
-
       <!-- 筛选区域 -->
       <div class="filter-section">
         <a-space wrap>
@@ -118,11 +117,22 @@
         <a-form-item label="服务URL" required>
           <a-input v-model="importForm.serviceUrl" placeholder="http://localhost:8778" />
         </a-form-item>
-        <a-form-item label="OpenAPI地址">
+        <a-form-item label="OpenAPI地址" required>
           <a-input
             v-model="importForm.openapiUrl"
             placeholder="http://localhost:8778/openapi.json"
           />
+        </a-form-item>
+        <a-form-item label="绑定微服务">
+          <a-select
+            v-model="importForm.microserviceId"
+            placeholder="选择要绑定的微服务（可选）"
+            allow-clear
+          >
+            <a-option v-for="ms in microserviceList" :key="ms.id" :value="ms.id">
+              {{ ms.name }} ({{ ms.business_line || '无业务线' }})
+            </a-option>
+          </a-select>
         </a-form-item>
       </a-form>
     </a-modal>
@@ -148,10 +158,11 @@
 </template>
 
 <script setup lang="ts">
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, reactive, computed, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import type { TableColumn } from '@arco-design/web-vue'
-import { IconApps, IconRefresh, IconUpload } from '@arco-design/web-vue/es/icon'
+import { IconRefresh, IconUpload } from '@arco-design/web-vue/es/icon'
 import {
   getAllTools,
   getMicroservices,
@@ -159,6 +170,7 @@ import {
   unbindTool,
   updateToolEnabled
 } from '@/api/microservice'
+import { importOpenAPI } from '@/api/openapi'
 import type { MicroserviceTool, Microservice } from '@/types'
 
 const columns: TableColumn[] = [
@@ -220,7 +232,8 @@ const filterBusinessLine = ref<string>('')
 const importForm = reactive({
   serviceName: 'Product Service',
   serviceUrl: 'http://localhost:8778',
-  openapiUrl: ''
+  openapiUrl: '',
+  microserviceId: null as number | null
 })
 
 // 获取所有业务线
@@ -366,23 +379,16 @@ const handleImport = async () => {
 
   importing.value = true
   try {
-    const response = await fetch('/api/openapi/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        service_name: importForm.serviceName,
-        service_url: importForm.serviceUrl,
-        openapi_url: importForm.openapiUrl
-      })
+    const result = await importOpenAPI({
+      service_name: importForm.serviceName,
+      service_url: importForm.serviceUrl,
+      openapi_url: importForm.openapiUrl,
+      microservice_id: importForm.microserviceId || undefined
     })
-    const result = await response.json()
-    if (result.code === '0000') {
-      Message.success(`成功导入 ${result.data?.imported || 0} 个工具`)
-      showImportModal.value = false
-      loadData()
-    } else {
-      Message.error('导入失败: ' + result.info)
-    }
+    const importedCount = result.tools?.length || 0
+    Message.success(`成功导入 ${importedCount} 个工具`)
+    showImportModal.value = false
+    loadData()
   } catch (error: any) {
     Message.error('导入失败: ' + error.message)
   } finally {
@@ -431,6 +437,23 @@ onMounted(() => {
   padding: 12px 16px;
   background: #f7f8fa;
   border-radius: 8px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.page-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1d2129;
 }
 
 .tool-description {

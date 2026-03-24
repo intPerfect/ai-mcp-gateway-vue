@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 <template>
   <div class="chat-page">
     <!-- 左侧配置面板 - 固定 -->
@@ -250,16 +249,15 @@
               </div>
             </div>
           </div>
-          <a-textarea
-            v-model="inputMessage"
-            placeholder="输入消息..."
-            :disabled="!connected"
-            :auto-size="{ minRows: 2, maxRows: 2 }"
-            class="input-field"
-            @press-enter="handleSend"
-          />
-          <div class="input-actions">
-            <span class="char-count">{{ inputMessage.length }} 字符</span>
+          <!-- 单行输入框 + 发送按钮 -->
+          <div class="input-row">
+            <a-input
+              v-model="inputMessage"
+              placeholder="输入消息，按 Enter 发送..."
+              :disabled="!connected"
+              allow-clear
+              @press-enter="handleSend"
+            />
             <a-button
               type="primary"
               :disabled="!connected || !inputMessage.trim()"
@@ -267,7 +265,6 @@
               @click="handleSend"
             >
               <template #icon><icon-send /></template>
-              发送
             </a-button>
           </div>
         </div>
@@ -277,6 +274,7 @@
 </template>
 
 <script setup lang="ts">
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, reactive, computed, nextTick, onUnmounted, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import {
@@ -340,7 +338,7 @@ const sessionId = ref('')
 
 const configForm = reactive({
   apiBaseUrl: `http://${window.location.hostname}:8777`,
-  gatewayKey: 'gw-test-api-key-001',
+  gatewayKey: 'sk-defaultkey001:Xy7zA1b2C3d4E5f6G7h8I9j0KlMnOpQrStUvWxYz',
   llmKey:
     'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLnmb7ono3kupHliJsiLCJVc2VyTmFtZSI6IueZvuiejeS6keWImyIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxOTk4NjY2Nzg0MTg5NzE0Njk5IiwiUGhvbmUiOiIxOTUxMTk4MTY4OSIsIkdyb3VwSUQiOiIxOTk4NjY2Nzg0MTgxMzI2MDkxIiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiIiwiQ3JlYXRlVGltZSI6IjIwMjUtMTItMTAgMjE6MzI6MTYiLCJUb2tlblR5cGUiOjQsImlzcyI6Im1pbmltYXgifQ.u5vB41nODwjoj-a728IeKgtdnoL7AC0rJbw3Uv8iXA6CVqXQ3SY5RCTo87yAzAeva8prR4YcBQ-nIG5mtXYd_jemI-mjA909hYN3yvWsjuD4m_3U2SqoDY5E6vV6gyGPzQlnB0OkzOKJCwQbb6FUfcymWTSiAtw2k8DgfCeQLJLUMKmxOjHYOontut_gujCxY57wU-8h0p4PWkS74hLnritLO3oIBq6ZNmf1d3uC4pw-jVCflSlymm16luObc-DeohNc83fAOtMPSJ76mi_bdAcoIgCOyAP3VUan53QyLHwzcq-i8YI-TuxkAvH3slauNsHAfUWNhlqJouRXdFwsHg',
   selectedMicroservices: [] as number[] // 选中的微服务ID列表
@@ -381,13 +379,15 @@ const scrollToBottom = () => {
   })
 }
 
-// 加载网关Key
+// 加载网关Key（注意：API Key 使用 bcrypt 存储，无法获取明文，此处仅作备用逻辑）
 const loadGatewayKey = async () => {
   try {
     const response = await fetch('/api/apikeys')
     const result = await response.json()
     if (result.code === '0000' && result.data?.gateway_keys?.length > 0) {
-      configForm.gatewayKey = result.data.gateway_keys[0].api_key
+      // 数据库中存储的是 key_id，完整 API Key 需用户自行保存
+      // 此处不覆盖默认值，仅记录日志
+      console.log('已加载 gateway_keys:', result.data.gateway_keys)
     }
   } catch (error) {
     console.error('加载网关Key失败:', error)
@@ -808,19 +808,48 @@ const formatTime = (date: Date) => {
 const allQuestions = [
   { text: '统计各分类商品数量，找出商品最多的分类' },
   { text: '帮我下单iPhone 15 Pro：查库存、算价格、创建订单' },
-  { text: '查找库存不足的商品，推荐价格相近的替代品' }
+  { text: '查找库存不足的商品，推荐价格相近的替代品' },
+  { text: '查询价格在3000-5000元之间的商品有哪些' },
+  { text: '帮我查看所有分类列表' },
+  { text: '搜索名称包含"手机"的商品' },
+  { text: '查询订单状态和详情' },
+  { text: '推荐销量最高的商品' }
 ]
 
 // 当前显示的问题
 const displayedQuestions = ref<{ text: string }[]>([])
+const usedIndices = ref<Set<number>>(new Set())
 const isRefreshing = ref(false)
 
-// 随机选取问题
+// 随机选取问题（不重复）
 const refreshQuestions = () => {
   isRefreshing.value = true
   setTimeout(() => {
-    const shuffled = [...allQuestions].sort(() => Math.random() - 0.5)
-    displayedQuestions.value = shuffled.slice(0, 3)
+    // 获取未使用过的索引
+    const availableIndices = []
+    for (let i = 0; i < allQuestions.length; i++) {
+      if (!usedIndices.value.has(i)) {
+        availableIndices.push(i)
+      }
+    }
+
+    // 如果可用问题不足，重置已使用记录
+    if (availableIndices.length < 2) {
+      usedIndices.value.clear()
+      for (let i = 0; i < allQuestions.length; i++) {
+        availableIndices.push(i)
+      }
+    }
+
+    // 随机选取2个
+    const shuffled = availableIndices.sort(() => Math.random() - 0.5)
+    const selectedIndices = shuffled.slice(0, 2)
+
+    // 记录已使用
+    selectedIndices.forEach(i => usedIndices.value.add(i))
+
+    // 设置显示的问题
+    displayedQuestions.value = selectedIndices.map(i => allQuestions[i])
     isRefreshing.value = false
   }, 300)
 }
@@ -1103,34 +1132,54 @@ onUnmounted(() => {
 
 .input-area {
   padding: 16px;
-  background: #fafbfc;
+  background: #fff;
+  margin-top: 20px;
 }
 
-.input-field {
-  border: 1px solid #e5e6eb;
-  border-radius: 8px;
-}
-
-.input-field :deep(.arco-textarea) {
-  padding: 12px;
-}
-
-.input-field :deep(.arco-textarea-wrapper) {
-  border: none;
-  box-shadow: none;
-}
-
-.input-actions {
+.input-row {
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
   gap: 12px;
-  margin-top: 8px;
+  align-items: stretch;
 }
 
-.char-count {
-  font-size: 12px;
-  color: #86909c;
+.input-row :deep(.arco-input-wrapper) {
+  flex: 1;
+  height: 44px;
+  border-radius: 22px;
+  padding: 0 16px;
+  background: #f7f8fa;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.input-row :deep(.arco-input-wrapper:hover) {
+  background: #fff;
+  border-color: #e5e6eb;
+}
+
+.input-row :deep(.arco-input-wrapper:focus-within) {
+  background: #fff;
+  border-color: #165dff;
+  box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
+}
+
+.input-row :deep(.arco-input) {
+  font-size: 14px;
+}
+
+.input-row :deep(.arco-btn-primary) {
+  flex-shrink: 0;
+  height: 44px;
+  width: 44px;
+  border-radius: 22px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-row :deep(.arco-btn-primary .arco-icon) {
+  font-size: 18px;
 }
 
 pre {
@@ -1331,9 +1380,8 @@ pre {
 
 /* 豆包风格推荐问题 */
 .suggestions-block {
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
-  margin-bottom: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
 }
 
 .suggestions-header {

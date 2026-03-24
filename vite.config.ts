@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
     plugins: [vue()],
     server: {
       port: 5173,
-      host: true,
+      host: '127.0.0.1',
       open: false,
       proxy: {
         '/api': {

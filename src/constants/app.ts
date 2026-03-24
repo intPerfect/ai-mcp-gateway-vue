@@ -12,7 +12,7 @@ export const APP_VERSION = '1.0.0'
 export const DEFAULT_API_BASE_URL = `http://${window.location.hostname}:8777`
 
 // 默认网关 Key
-export const DEFAULT_GATEWAY_KEY = 'gw-test-api-key-001'
+export const DEFAULT_GATEWAY_KEY = 'sk-defaultkey001:Xy7zA1b2C3d4E5f6G7h8I9j0KlMnOpQrStUvWxYz'
 
 // Storage Keys
 export const STORAGE_KEYS = {
