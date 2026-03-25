@@ -275,7 +275,7 @@
 
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ref, reactive, computed, nextTick, onUnmounted, onMounted } from 'vue'
+import { ref, reactive, computed, onUnmounted, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import {
   IconLink,
@@ -293,54 +293,23 @@ import {
 } from '@arco-design/web-vue/es/icon'
 import MarkdownRender from 'markstream-vue'
 import 'markstream-vue/index.css'
-
-interface ToolInfo {
-  name: string
-  description: string
-  input_schema: Record<string, unknown>
-  microservice_name?: string
-}
-
-interface Microservice {
-  id: number
-  name: string
-  http_base_url: string
-  description: string
-  business_line: string
-  health_status: 'healthy' | 'unhealthy' | 'unknown'
-  tool_count?: number
-}
-
-interface ContentBlock {
-  type: 'thinking' | 'text' | 'tool_use' | 'tool_result'
-  thinking?: string
-  text?: string
-  name?: string
-  content?: string
-}
-
-interface MessageItem {
-  role: 'user' | 'assistant'
-  content: string | ContentBlock[]
-  time: string
-  type?: string
-  tool_id?: string
-  tool?: string
-  arguments?: string
-  result?: string
-  status?: string
-  streaming?: boolean
-  thinkingContent?: string
-}
+import type { ToolInfo, Microservice, ContentBlock, ChatMessage } from '@/types'
+import { getMicroservices } from '@/api/microservice'
+import {
+  WS_MESSAGE_TYPE,
+  SUGGESTED_QUESTIONS,
+  DEFAULT_GATEWAY_KEY,
+  DEFAULT_LLM_KEY
+} from '@/constants'
+import { useScrollToBottom } from '@/hooks'
 
 let websocket: WebSocket | null = null
 const sessionId = ref('')
 
 const configForm = reactive({
   apiBaseUrl: `http://${window.location.hostname}:8777`,
-  gatewayKey: 'sk-defaultkey001:Xy7zA1b2C3d4E5f6G7h8I9j0KlMnOpQrStUvWxYz',
-  llmKey:
-    'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLnmb7ono3kupHliJsiLCJVc2VyTmFtZSI6IueZvuiejeS6keWImyIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxOTk4NjY2Nzg0MTg5NzE0Njk5IiwiUGhvbmUiOiIxOTUxMTk4MTY4OSIsIkdyb3VwSUQiOiIxOTk4NjY2Nzg0MTgxMzI2MDkxIiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiIiwiQ3JlYXRlVGltZSI6IjIwMjUtMTItMTAgMjE6MzI6MTYiLCJUb2tlblR5cGUiOjQsImlzcyI6Im1pbmltYXgifQ.u5vB41nODwjoj-a728IeKgtdnoL7AC0rJbw3Uv8iXA6CVqXQ3SY5RCTo87yAzAeva8prR4YcBQ-nIG5mtXYd_jemI-mjA909hYN3yvWsjuD4m_3U2SqoDY5E6vV6gyGPzQlnB0OkzOKJCwQbb6FUfcymWTSiAtw2k8DgfCeQLJLUMKmxOjHYOontut_gujCxY57wU-8h0p4PWkS74hLnritLO3oIBq6ZNmf1d3uC4pw-jVCflSlymm16luObc-DeohNc83fAOtMPSJ76mi_bdAcoIgCOyAP3VUan53QyLHwzcq-i8YI-TuxkAvH3slauNsHAfUWNhlqJouRXdFwsHg',
+  gatewayKey: DEFAULT_GATEWAY_KEY,
+  llmKey: DEFAULT_LLM_KEY,
   selectedMicroservices: [] as number[] // 选中的微服务ID列表
 })
 
@@ -350,7 +319,7 @@ const loading = ref(false)
 const sending = ref(false)
 const showSuggestions = ref(true) // 是否显示推荐问题
 const inputMessage = ref('')
-const messages = ref<MessageItem[]>([])
+const messages = ref<ChatMessage[]>([])
 const tools = ref<ToolInfo[]>([])
 const microserviceList = ref<Microservice[]>([])
 
@@ -364,52 +333,25 @@ const toolsByGroup = computed(() => {
   }
   return groups
 })
-const messageListRef = ref<HTMLElement | null>(null)
 const expandedThoughts = reactive<Record<string, boolean>>({})
 // 追踪当前对话轮次的思考内容归宿消息索引（-1 表示尚未分配）
 const thinkingMsgIndex = ref<number>(-1)
 // 追踪当前 thinking 轮次，用于区分不同轮次的 thinking 块
 const currentThinkingRound = ref<number>(0)
 
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (messageListRef.value) {
-      messageListRef.value.scrollTop = messageListRef.value.scrollHeight
-    }
-  })
-}
-
-// 加载网关Key（注意：API Key 使用 bcrypt 存储，无法获取明文，此处仅作备用逻辑）
-const loadGatewayKey = async () => {
-  try {
-    const response = await fetch('/api/apikeys')
-    const result = await response.json()
-    if (result.code === '0000' && result.data?.gateway_keys?.length > 0) {
-      // 数据库中存储的是 key_id，完整 API Key 需用户自行保存
-      // 此处不覆盖默认值，仅记录日志
-      console.log('已加载 gateway_keys:', result.data.gateway_keys)
-    }
-  } catch (error) {
-    console.error('加载网关Key失败:', error)
-  }
-}
+const { containerRef: messageListRef, scrollToBottom } = useScrollToBottom()
 
 // 加载微服务列表
 const loadMicroservices = async () => {
   try {
-    const response = await fetch('/api/microservices')
-    const result = await response.json()
-    if (result.code === '0000') {
-      microserviceList.value = result.data || []
-    }
+    microserviceList.value = await getMicroservices()
   } catch (error) {
     console.error('加载微服务列表失败:', error)
   }
 }
 
-// 页面加载时获取网关Key和微服务列表
+// 页面加载时获取微服务列表
 onMounted(() => {
-  loadGatewayKey()
   loadMicroservices()
 })
 
@@ -489,13 +431,13 @@ const currentToolCall = ref<{ name: string; id: string; arguments: string } | nu
 
 const handleWsMessage = (data: any) => {
   switch (data.type) {
-    case 'welcome':
+    case WS_MESSAGE_TYPE.WELCOME:
       console.log('收到 welcome 消息:', data)
       tools.value = data.tools || []
       Message.success(`已连接，已加载 ${tools.value.length} 个工具`)
       break
 
-    case 'user':
+    case WS_MESSAGE_TYPE.USER:
       messages.value.push({
         role: 'user',
         content: data.content,
@@ -504,7 +446,7 @@ const handleWsMessage = (data: any) => {
       scrollToBottom()
       break
 
-    case 'stream_start':
+    case WS_MESSAGE_TYPE.STREAM_START:
       // 流式输出开始：如果已有空的loading气泡则复用，否则创建新气泡
       {
         const lastStreamMsg = messages.value[messages.value.length - 1]
@@ -527,7 +469,7 @@ const handleWsMessage = (data: any) => {
       }
       break
 
-    case 'text_delta':
+    case WS_MESSAGE_TYPE.TEXT_DELTA:
       // 流式文本增量 - 直接更新消息内容
       if (data.text) {
         const lastMsg = messages.value[messages.value.length - 1]
@@ -538,7 +480,7 @@ const handleWsMessage = (data: any) => {
       }
       break
 
-    case 'thinking_delta':
+    case WS_MESSAGE_TYPE.THINKING_DELTA:
       // thinking 增量 - 根据后端传来的 round 字段区分不同轮次的 thinking
       if (data.accumulated || data.thinking) {
         // 使用后端传来的本轮累积内容
@@ -573,11 +515,11 @@ const handleWsMessage = (data: any) => {
       }
       break
 
-    case 'text_stop':
+    case WS_MESSAGE_TYPE.TEXT_STOP:
       // 文本块结束
       break
 
-    case 'tool_use_start':
+    case WS_MESSAGE_TYPE.TOOL_USE_START:
       // 工具调用开始 - 先结束当前的流式消息，再显示工具调用
       {
         const lastStreamingMsg = messages.value[messages.value.length - 1]
@@ -615,17 +557,17 @@ const handleWsMessage = (data: any) => {
       scrollToBottom()
       break
 
-    case 'tool_use_stop':
+    case WS_MESSAGE_TYPE.TOOL_USE_STOP:
       // 工具调用定义结束
       break
 
-    case 'tool_call':
+    case WS_MESSAGE_TYPE.TOOL_CALL:
       // 更新工具调用消息（执行中状态）
       // 使用 tool_id 匹配，如果没有则使用 tool 名称
       {
         const toolId = data.tool_id || data.tool
         const existingToolMsg = messages.value.find(
-          (m: MessageItem) =>
+          (m: ChatMessage) =>
             m.type === 'tool_call' &&
             (m.tool_id === toolId || (m.tool === data.tool && m.status !== 'completed'))
         )
@@ -648,14 +590,14 @@ const handleWsMessage = (data: any) => {
       }
       break
 
-    case 'tool_result':
+    case WS_MESSAGE_TYPE.TOOL_RESULT:
       // 更新工具调用结果
       {
         const resultToolId = data.tool_id || data.tool
         const pendingToolMsg = [...messages.value]
           .reverse()
           .find(
-            (m: MessageItem) =>
+            (m: ChatMessage) =>
               m.type === 'tool_call' &&
               (m.tool_id === resultToolId || (m.tool === data.tool && m.status !== 'completed'))
           )
@@ -668,7 +610,7 @@ const handleWsMessage = (data: any) => {
       }
       break
 
-    case 'response':
+    case WS_MESSAGE_TYPE.RESPONSE:
       // 最终响应，标记流式输出结束
       // 找最后一个非 tool_call 的 assistant 消息气泡
       {
@@ -700,7 +642,7 @@ const handleWsMessage = (data: any) => {
       scrollToBottom()
       break
 
-    case 'status':
+    case WS_MESSAGE_TYPE.STATUS:
       // 状态消息 - 显示思考状态
       if (data.status === 'thinking') {
         // 思考状态
@@ -709,7 +651,7 @@ const handleWsMessage = (data: any) => {
       }
       break
 
-    case 'error':
+    case WS_MESSAGE_TYPE.ERROR:
       Message.error('错误: ' + data.message)
       loading.value = false
       sending.value = false
@@ -727,7 +669,7 @@ const handleWsMessage = (data: any) => {
       }
       break
 
-    case 'thinking':
+    case WS_MESSAGE_TYPE.THINKING:
       // 显示思考过程
       if (data.thinking) {
         messages.value.push({
@@ -804,17 +746,8 @@ const formatTime = (date: Date) => {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-// 快捷测试问题 - 展示Agent多工具调用能力
-const allQuestions = [
-  { text: '统计各分类商品数量，找出商品最多的分类' },
-  { text: '帮我下单iPhone 15 Pro：查库存、算价格、创建订单' },
-  { text: '查找库存不足的商品，推荐价格相近的替代品' },
-  { text: '查询价格在3000-5000元之间的商品有哪些' },
-  { text: '帮我查看所有分类列表' },
-  { text: '搜索名称包含"手机"的商品' },
-  { text: '查询订单状态和详情' },
-  { text: '推荐销量最高的商品' }
-]
+// 快捷测试问题 - 展示Agent多工具调用能力（从常量导入）
+const allQuestions = [...SUGGESTED_QUESTIONS]
 
 // 当前显示的问题
 const displayedQuestions = ref<{ text: string }[]>([])

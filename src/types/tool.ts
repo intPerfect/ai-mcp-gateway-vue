@@ -15,6 +15,7 @@ export interface ToolInfo {
   status: string
   http_url?: string
   error?: string
+  microservice_name?: string
 }
 
 export interface ToolListResponse {

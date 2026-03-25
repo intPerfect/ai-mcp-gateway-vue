@@ -1,9 +1,10 @@
 /**
  * useWebSocket - WebSocket 连接管理 composable
  */
-import { ref, onUnmounted } from 'vue'
+import { onUnmounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { useChatStore, useConfigStore } from '@/stores'
+import type { ToolInfo } from '@/types'
 
 export interface WSEvent {
   type: string
@@ -13,7 +14,7 @@ export interface WSEvent {
 export function useWebSocket() {
   const chatStore = useChatStore()
   const configStore = useConfigStore()
-  
+
   let websocket: WebSocket | null = null
 
   const connect = async (): Promise<boolean> => {
@@ -23,14 +24,14 @@ export function useWebSocket() {
 
     try {
       // 第一步：调用 HTTP 接口验证 Key 并获取 session
-      const sessionResponse = await fetch(`${configStore.apiBaseUrl}/api/chat/session`, {
+      const sessionResponse = await fetch(`${configStore.config.apiBaseUrl}/api/chat/session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          gateway_key: configStore.gatewayKey,
-          llm_key: configStore.llmKey
+          gateway_key: configStore.config.gatewayKey,
+          llm_key: configStore.config.llmKey
         })
       })
 
@@ -47,7 +48,7 @@ export function useWebSocket() {
       const wsUrl = `ws://${window.location.hostname}:8777${wsPath}`
       websocket = new WebSocket(wsUrl)
 
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         websocket!.onopen = () => {
           chatStore.setConnected(true)
           chatStore.setConnecting(false)
@@ -55,12 +56,12 @@ export function useWebSocket() {
           resolve(true)
         }
 
-        websocket!.onmessage = (event) => {
+        websocket!.onmessage = event => {
           const data = JSON.parse(event.data)
           handleWsMessage(data)
         }
 
-        websocket!.onerror = (error) => {
+        websocket!.onerror = error => {
           console.error('WebSocket 错误:', error)
           Message.error('连接失败')
           chatStore.setConnecting(false)
@@ -103,7 +104,7 @@ export function useWebSocket() {
   const handleWsMessage = (data: WSEvent) => {
     switch (data.type) {
       case 'welcome':
-        chatStore.setTools(data.tools as import('@/stores/chat').ToolInfo[])
+        chatStore.setTools(data['tools'] as ToolInfo[])
         Message.success(`已连接，已加载 ${chatStore.toolCount} 个工具`)
         break
 
@@ -112,7 +113,7 @@ export function useWebSocket() {
         break
 
       case 'text_delta':
-        handleTextDelta(data.text as string)
+        handleTextDelta(data['text'] as string)
         break
 
       case 'thinking_delta':
@@ -144,11 +145,11 @@ export function useWebSocket() {
         break
 
       case 'error':
-        handleError(data.message as string)
+        handleError(data['message'] as string)
         break
 
       case 'thinking':
-        handleThinking(data.thinking as string)
+        handleThinking(data['thinking'] as string)
         break
     }
   }
@@ -177,9 +178,9 @@ export function useWebSocket() {
   }
 
   const handleThinkingDelta = (data: WSEvent) => {
-    if (data.accumulated || data.thinking) {
-      const content = (data.accumulated as string) || (data.thinking as string) || ''
-      const round = (data.round as number) || 1
+    if (data['accumulated'] || data['thinking']) {
+      const content = (data['accumulated'] as string) || (data['thinking'] as string) || ''
+      const round = (data['round'] as number) || 1
 
       // 检查 round 是否变化
       if (round !== chatStore.currentThinkingRound) {
@@ -217,8 +218,8 @@ export function useWebSocket() {
 
     // 记录当前工具调用
     chatStore.setCurrentToolCall({
-      name: data.name as string,
-      id: data.id as string,
+      name: data['name'] as string,
+      id: data['id'] as string,
       arguments: ''
     })
 
@@ -228,21 +229,22 @@ export function useWebSocket() {
       content: '',
       time: formatTime(new Date()),
       type: 'tool_call',
-      tool: data.name as string,
+      tool: data['name'] as string,
       arguments: '',
       status: 'preparing'
     })
   }
 
   const handleToolCall = (data: WSEvent) => {
-    const toolId = (data.tool_id as string) || (data.tool as string)
+    const toolId = (data['tool_id'] as string) || (data['tool'] as string)
     const existingToolMsg = chatStore.messages.find(
-      (m) => m.type === 'tool_call' && 
-        (m.tool_id === toolId || (m.tool === data.tool && m.status !== 'completed'))
+      m =>
+        m.type === 'tool_call' &&
+        (m.tool_id === toolId || (m.tool === data['tool'] && m.status !== 'completed'))
     )
-    const statusVal = (data.status as 'preparing' | 'executing' | 'completed') || 'executing'
+    const statusVal = (data['status'] as 'preparing' | 'executing' | 'completed') || 'executing'
     if (existingToolMsg) {
-      existingToolMsg.arguments = JSON.stringify(data.arguments, null, 2)
+      existingToolMsg.arguments = JSON.stringify(data['arguments'], null, 2)
       existingToolMsg.status = statusVal
     } else {
       chatStore.addMessage({
@@ -251,21 +253,27 @@ export function useWebSocket() {
         time: formatTime(new Date()),
         type: 'tool_call',
         tool_id: toolId,
-        tool: data.tool as string,
-        arguments: JSON.stringify(data.arguments, null, 2),
+        tool: data['tool'] as string,
+        arguments: JSON.stringify(data['arguments'], null, 2),
         status: statusVal
       })
     }
   }
 
   const handleToolResult = (data: WSEvent) => {
-    const resultToolId = (data.tool_id as string) || (data.tool as string)
-    const pendingToolMsg = [...chatStore.messages].reverse().find(
-      (m) => m.type === 'tool_call' && 
-        (m.tool_id === resultToolId || (m.tool === data.tool && m.status !== 'completed'))
-    )
+    const resultToolId = (data['tool_id'] as string) || (data['tool'] as string)
+    const pendingToolMsg = [...chatStore.messages]
+      .reverse()
+      .find(
+        m =>
+          m.type === 'tool_call' &&
+          (m.tool_id === resultToolId || (m.tool === data['tool'] && m.status !== 'completed'))
+      )
     if (pendingToolMsg) {
-      const result = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2)
+      const result =
+        typeof data['result'] === 'string'
+          ? data['result']
+          : JSON.stringify(data['result'], null, 2)
       pendingToolMsg.result = result
       pendingToolMsg.status = 'completed'
     }
@@ -274,20 +282,23 @@ export function useWebSocket() {
   const handleResponse = (data: WSEvent) => {
     let targetMsg = null
     for (let i = chatStore.messages.length - 1; i >= 0; i--) {
-      if (chatStore.messages[i].role === 'assistant' && chatStore.messages[i].type !== 'tool_call') {
+      if (
+        chatStore.messages[i].role === 'assistant' &&
+        chatStore.messages[i].type !== 'tool_call'
+      ) {
         targetMsg = chatStore.messages[i]
         break
       }
     }
     if (targetMsg) {
       targetMsg.streaming = false
-      if (data.content && !targetMsg.content) {
-        targetMsg.content = data.content as string
+      if (data['content'] && !targetMsg.content) {
+        targetMsg.content = data['content'] as string
       }
-    } else if (data.content) {
+    } else if (data['content']) {
       chatStore.addMessage({
         role: 'assistant',
-        content: data.content as string,
+        content: data['content'] as string,
         time: formatTime(new Date()),
         streaming: false
       })
@@ -297,7 +308,7 @@ export function useWebSocket() {
   }
 
   const handleStatus = (data: WSEvent) => {
-    if (data.status === 'cleared') {
+    if (data['status'] === 'cleared') {
       chatStore.clearMessages()
     }
   }

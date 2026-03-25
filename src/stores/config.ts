@@ -4,7 +4,12 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { getStorage, setStorage } from '@/utils'
-import { DEFAULT_API_BASE_URL, DEFAULT_GATEWAY_KEY, STORAGE_KEYS } from '@/constants'
+import {
+  DEFAULT_API_BASE_URL,
+  DEFAULT_GATEWAY_KEY,
+  DEFAULT_LLM_KEY,
+  STORAGE_KEYS
+} from '@/constants'
 import type { ChatConfigForm } from '@/types'
 
 export const useConfigStore = defineStore('config', () => {
@@ -16,7 +21,8 @@ export const useConfigStore = defineStore('config', () => {
     savedConfig || {
       apiBaseUrl: DEFAULT_API_BASE_URL,
       gatewayKey: DEFAULT_GATEWAY_KEY,
-      llmKey: ''
+      llmKey: DEFAULT_LLM_KEY,
+      selectedMicroservices: []
     }
   )
 

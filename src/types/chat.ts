@@ -60,4 +60,5 @@ export interface ChatConfigForm {
   apiBaseUrl: string
   gatewayKey: string
   llmKey: string
+  selectedMicroservices: number[]
 }

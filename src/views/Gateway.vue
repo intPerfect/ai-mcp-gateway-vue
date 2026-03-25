@@ -339,16 +339,16 @@ import {
   createLlmKey as apiCreateLlmKey,
   deleteLlmKey as apiDeleteLlmKey
 } from '@/api/gateway'
+import type { Gateway, GatewayKey, Llm, LlmKey } from '@/types'
 const activeTab = ref('gateways')
 const loading = ref(false)
 const saving = ref(false)
 
 // 数据列表
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const gateways = ref<any[]>([])
-const gatewayKeys = ref<any[]>([])
-const llms = ref<any[]>([])
-const llmKeys = ref<any[]>([])
+const gateways = ref<Gateway[]>([])
+const gatewayKeys = ref<GatewayKey[]>([])
+const llms = ref<Llm[]>([])
+const llmKeys = ref<LlmKey[]>([])
 
 // 表格列定义
 const gatewayColumns = [
@@ -474,7 +474,7 @@ const loadAll = async () => {
 }
 
 // 网关操作
-const showGatewayModal = (record?: any) => {
+const showGatewayModal = (record?: Gateway) => {
   if (record) {
     gatewayForm.id = record.id
     gatewayForm.gateway_id = record.gateway_id
@@ -554,7 +554,7 @@ const deleteGatewayKey = async (id: number) => {
 }
 
 // LLM操作
-const showLlmModal = (record?: any) => {
+const showLlmModal = (record?: Llm) => {
   if (record) {
     llmForm.id = record.id
     llmForm.llm_id = record.llm_id

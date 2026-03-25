@@ -152,21 +152,6 @@ watch(
   { immediate: true }
 )
 
-watch(
-  () => route.path,
-  path => {
-    if (!path || typeof path !== 'string') {
-      selectedKeys.value = ['home']
-      return
-    }
-    const key = path.replace('/', '')
-    if (key && routeKeyMap[key]) {
-      selectedKeys.value = [key]
-    }
-  },
-  { immediate: true }
-)
-
 const handleMenuClick = (key: string) => {
   if (key && typeof key === 'string') {
     router.push('/' + key)

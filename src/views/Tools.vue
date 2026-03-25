@@ -22,7 +22,6 @@
             placeholder="选择微服务"
             allow-clear
             style="width: 200px"
-            @change="handleFilterChange"
           >
             <a-option value="">全部微服务</a-option>
             <a-option v-for="ms in microserviceList" :key="ms.id" :value="ms.id">
@@ -34,7 +33,6 @@
             placeholder="选择业务线"
             allow-clear
             style="width: 160px"
-            @change="handleFilterChange"
           >
             <a-option value="">全部业务线</a-option>
             <a-option v-for="bl in businessLines" :key="bl" :value="bl">
@@ -276,10 +274,6 @@ const loadData = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const handleFilterChange = () => {
-  // 筛选已通过computed自动处理
 }
 
 const getCallStatusIcon = (status: string) => {
