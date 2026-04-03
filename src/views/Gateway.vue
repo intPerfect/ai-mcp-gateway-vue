@@ -43,12 +43,29 @@
                 {{ record.auth === 1 ? '已启用' : '未启用' }}
               </a-tag>
             </template>
+            <template #microservices="{ record }">
+              <a-space wrap>
+                <a-tag
+                  v-for="ms in gatewayMicroservicesMap[record.gateway_id] || []"
+                  :key="ms.id"
+                  color="arcoblue"
+                >
+                  {{ ms.name }}
+                </a-tag>
+                <span v-if="!gatewayMicroservicesMap[record.gateway_id]?.length" class="unbound">
+                  暂无
+                </span>
+              </a-space>
+            </template>
             <template #status="{ record }">
               <a-tag :color="record.status === 1 ? 'green' : 'red'">
                 {{ record.status === 1 ? '启用' : '禁用' }}
               </a-tag>
             </template>
             <template #actions="{ record }">
+              <a-button type="text" size="small" @click="showBindMicroserviceModal(record)">
+                绑定微服务
+              </a-button>
               <a-button type="text" size="small" @click="showGatewayModal(record)">编辑</a-button>
               <a-button type="text" size="small" status="danger" @click="deleteGateway(record.id)">
                 删除
@@ -316,6 +333,27 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- 微服务绑定弹窗 -->
+    <a-modal
+      v-model:visible="bindMicroserviceModalVisible"
+      title="绑定微服务"
+      :ok-loading="saving"
+      @ok="saveBindMicroservice"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="网关">
+          <a-input :model-value="bindGateway?.gateway_name" disabled />
+        </a-form-item>
+        <a-form-item label="选择微服务">
+          <a-checkbox-group v-model="bindMicroserviceIds" direction="vertical">
+            <a-checkbox v-for="ms in allMicroservices" :key="ms.id" :value="ms.id">
+              {{ ms.name }} ({{ ms.business_line || '未分类' }})
+            </a-checkbox>
+          </a-checkbox-group>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -337,9 +375,12 @@ import {
   deleteLlm as apiDeleteLlm,
   getLlmKeys,
   createLlmKey as apiCreateLlmKey,
-  deleteLlmKey as apiDeleteLlmKey
+  deleteLlmKey as apiDeleteLlmKey,
+  getGatewayMicroservices,
+  setGatewayMicroservices
 } from '@/api/gateway'
-import type { Gateway, GatewayKey, Llm, LlmKey } from '@/types'
+import { getMicroservices } from '@/api/microservice'
+import type { Gateway, GatewayKey, Llm, LlmKey, Microservice } from '@/types'
 const activeTab = ref('gateways')
 const loading = ref(false)
 const saving = ref(false)
@@ -349,14 +390,16 @@ const gateways = ref<Gateway[]>([])
 const gatewayKeys = ref<GatewayKey[]>([])
 const llms = ref<Llm[]>([])
 const llmKeys = ref<LlmKey[]>([])
+const allMicroservices = ref<Microservice[]>([])
+const gatewayMicroservicesMap = ref<Record<string, Microservice[]>>({})
 
 // 表格列定义
 const gatewayColumns = [
   { title: 'ID', dataIndex: 'id', width: 60 },
   { title: '网关ID', dataIndex: 'gateway_id', width: 120 },
   { title: '网关名称', dataIndex: 'gateway_name', width: 150 },
+  { title: '已绑定微服务', slotName: 'microservices', width: 200 },
   { title: '描述', dataIndex: 'gateway_desc', ellipsis: true },
-  { title: '版本', dataIndex: 'version', width: 80 },
   { title: '认证', slotName: 'auth', width: 80 },
   { title: '状态', slotName: 'status', width: 80 },
   { title: '操作', slotName: 'actions', width: 120 }
@@ -398,7 +441,10 @@ const gatewayKeyModalVisible = ref(false)
 const llmModalVisible = ref(false)
 const llmKeyModalVisible = ref(false)
 const keyResultModalVisible = ref(false)
+const bindMicroserviceModalVisible = ref(false)
 const createdKey = ref('')
+const bindGateway = ref<Gateway | null>(null)
+const bindMicroserviceIds = ref<number[]>([])
 
 // 表单数据
 const gatewayForm = reactive({
@@ -438,6 +484,18 @@ const llmKeyForm = reactive({
 const loadGateways = async () => {
   try {
     gateways.value = await getGateways()
+    const msMap: Record<string, Microservice[]> = {}
+    await Promise.all(
+      gateways.value.map(async gw => {
+        try {
+          const bound = await getGatewayMicroservices(gw.gateway_id)
+          msMap[gw.gateway_id] = bound
+        } catch {
+          msMap[gw.gateway_id] = []
+        }
+      })
+    )
+    gatewayMicroservicesMap.value = msMap
   } catch (e) {
     console.error('加载网关失败', e)
   }
@@ -467,9 +525,23 @@ const loadLlmKeys = async () => {
   }
 }
 
+const loadMicroservices = async () => {
+  try {
+    allMicroservices.value = await getMicroservices()
+  } catch (e) {
+    console.error('加载微服务列表失败', e)
+  }
+}
+
 const loadAll = async () => {
   loading.value = true
-  await Promise.all([loadGateways(), loadGatewayKeys(), loadLlms(), loadLlmKeys()])
+  await Promise.all([
+    loadGateways(),
+    loadGatewayKeys(),
+    loadLlms(),
+    loadLlmKeys(),
+    loadMicroservices()
+  ])
   loading.value = false
 }
 
@@ -641,6 +713,34 @@ const copyCreatedKey = () => {
   Message.success('已复制到剪贴板')
 }
 
+// 微服务绑定操作
+const showBindMicroserviceModal = async (record: Gateway) => {
+  bindGateway.value = record
+  try {
+    // 获取当前网关绑定的微服务
+    const boundMicroservices = await getGatewayMicroservices(record.gateway_id)
+    bindMicroserviceIds.value = boundMicroservices.map(ms => ms.id)
+  } catch (e) {
+    console.error('获取绑定微服务失败', e)
+    bindMicroserviceIds.value = []
+  }
+  bindMicroserviceModalVisible.value = true
+}
+
+const saveBindMicroservice = async () => {
+  if (!bindGateway.value) return
+  saving.value = true
+  try {
+    await setGatewayMicroservices(bindGateway.value.gateway_id, bindMicroserviceIds.value)
+    Message.success('微服务绑定成功')
+    bindMicroserviceModalVisible.value = false
+    loadGateways()
+  } catch (e: any) {
+    Message.error(e.message || '绑定失败')
+  }
+  saving.value = false
+}
+
 onMounted(() => {
   loadAll()
 })
@@ -691,5 +791,10 @@ onMounted(() => {
 .key-input :deep(.arco-input) {
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 13px;
+}
+
+.unbound {
+  color: #86909c;
+  font-size: 12px;
 }
 </style>

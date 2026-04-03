@@ -1,46 +1,45 @@
 <template>
   <div class="tools-page">
-    <div class="page-header">
-      <span class="page-title">工具管理</span>
-      <a-space>
-        <a-button type="primary" @click="loadData">
-          <template #icon><icon-refresh /></template>
-          刷新
-        </a-button>
-        <a-button type="primary" status="success" @click="showImportModal = true">
-          <template #icon><icon-upload /></template>
-          导入OpenAPI
-        </a-button>
-      </a-space>
-    </div>
     <a-card :bordered="false">
       <!-- 筛选区域 -->
       <div class="filter-section">
-        <a-space wrap>
-          <a-select
-            v-model="filterMicroservice"
-            placeholder="选择微服务"
-            allow-clear
-            style="width: 200px"
-          >
-            <a-option value="">全部微服务</a-option>
-            <a-option v-for="ms in microserviceList" :key="ms.id" :value="ms.id">
-              {{ ms.name }}
-            </a-option>
-          </a-select>
-          <a-select
-            v-model="filterBusinessLine"
-            placeholder="选择业务线"
-            allow-clear
-            style="width: 160px"
-          >
-            <a-option value="">全部业务线</a-option>
-            <a-option v-for="bl in businessLines" :key="bl" :value="bl">
-              {{ bl }}
-            </a-option>
-          </a-select>
-          <a-tag color="arcoblue">共 {{ filteredTools.length }} 个工具</a-tag>
-        </a-space>
+        <div class="filter-row">
+          <div class="filter-left">
+            <a-select
+              v-model="filterBusinessLine"
+              placeholder="选择业务线"
+              allow-clear
+              style="width: 160px"
+            >
+              <a-option value="">全部业务线</a-option>
+              <a-option v-for="bl in microserviceBusinessLines" :key="bl" :value="bl">
+                {{ bl }}
+              </a-option>
+            </a-select>
+            <a-select
+              v-model="filterMicroservice"
+              placeholder="选择微服务"
+              allow-clear
+              style="width: 200px"
+            >
+              <a-option value="">全部微服务</a-option>
+              <a-option v-for="ms in filteredMicroserviceList" :key="ms.id" :value="ms.id">
+                {{ ms.name }}
+              </a-option>
+            </a-select>
+            <a-tag color="arcoblue">共 {{ filteredTools.length }} 个工具</a-tag>
+          </div>
+          <div class="filter-right">
+            <a-button type="primary" @click="loadData">
+              <template #icon><icon-refresh /></template>
+              刷新
+            </a-button>
+            <a-button type="primary" status="success" @click="showImportModal = true">
+              <template #icon><icon-upload /></template>
+              导入 OpenAPI
+            </a-button>
+          </div>
+        </div>
       </div>
 
       <a-table
@@ -51,10 +50,7 @@
         row-key="tool_id"
       >
         <template #toolName="{ record }">
-          <a-space>
-            <span class="call-status">{{ getCallStatusIcon(record.call_status) }}</span>
-            <a-tag color="arcoblue">{{ record.tool_name }}</a-tag>
-          </a-space>
+          <a-tag color="arcoblue">{{ record.tool_name }}</a-tag>
         </template>
         <template #description="{ record }">
           <span class="tool-description">{{ record.tool_description || '暂无描述' }}</span>
@@ -68,6 +64,7 @@
         <template #callStatus="{ record }">
           <a-tooltip :content="getCallStatusTooltip(record)">
             <span class="call-status-text" :class="record.call_status">
+              {{ getCallStatusIcon(record.call_status) }}
               {{ getCallStatusText(record.call_status) }}
             </span>
           </a-tooltip>
@@ -109,28 +106,37 @@
       @ok="handleImport"
     >
       <a-form :model="importForm" layout="vertical">
-        <a-form-item label="服务名称" required>
-          <a-input v-model="importForm.serviceName" placeholder="商品服务" />
-        </a-form-item>
-        <a-form-item label="服务URL" required>
-          <a-input v-model="importForm.serviceUrl" placeholder="http://localhost:8778" />
-        </a-form-item>
-        <a-form-item label="OpenAPI地址" required>
-          <a-input
-            v-model="importForm.openapiUrl"
-            placeholder="http://localhost:8778/openapi.json"
-          />
-        </a-form-item>
-        <a-form-item label="绑定微服务">
+        <a-form-item label="绑定微服务" required>
           <a-select
             v-model="importForm.microserviceId"
-            placeholder="选择要绑定的微服务（可选）"
+            placeholder="请选择微服务"
             allow-clear
+            style="width: 100%"
           >
             <a-option v-for="ms in microserviceList" :key="ms.id" :value="ms.id">
               {{ ms.name }} ({{ ms.business_line || '无业务线' }})
             </a-option>
           </a-select>
+        </a-form-item>
+        <a-form-item label="服务URL">
+          <a-input-group :compact="true" style="display: flex; width: 100%">
+            <a-input
+              v-model="importForm.serviceUrl"
+              placeholder="选定微服务后查看"
+              disabled
+              style="flex: 1"
+            />
+            <a-button @click="copyUrl">
+              <template #icon><icon-copy /></template>
+            </a-button>
+          </a-input-group>
+        </a-form-item>
+        <a-form-item label="OpenAPI地址" required>
+          <a-input
+            v-model="importForm.openapiUrl"
+            placeholder="http://localhost:8778/openapi.json"
+            style="width: 100%"
+          />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -142,7 +148,7 @@
       :ok-loading="binding"
       @ok="handleBind"
     >
-      <a-form layout="vertical">
+      <a-form :model="{ microserviceId: bindMicroserviceId }" layout="vertical">
         <a-form-item label="选择微服务">
           <a-select v-model="bindMicroserviceId" placeholder="请选择微服务">
             <a-option v-for="ms in microserviceList" :key="ms.id" :value="ms.id">
@@ -157,10 +163,10 @@
 
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import type { TableColumn } from '@arco-design/web-vue'
-import { IconRefresh, IconUpload } from '@arco-design/web-vue/es/icon'
+import { IconRefresh, IconUpload, IconCopy } from '@arco-design/web-vue/es/icon'
 import {
   getAllTools,
   getMicroservices,
@@ -168,8 +174,10 @@ import {
   unbindTool,
   updateToolEnabled
 } from '@/api/microservice'
+import { getBusinessLines } from '@/api/businessLine'
 import { importOpenAPI } from '@/api/openapi'
 import type { MicroserviceTool, Microservice } from '@/types'
+import type { BusinessLine } from '@/api/businessLine'
 
 const columns: TableColumn[] = [
   {
@@ -227,37 +235,56 @@ const bindMicroserviceId = ref<number | null>(null)
 const filterMicroservice = ref<string | number>('')
 const filterBusinessLine = ref<string>('')
 
+// 切换业务线时清空微服务选择
+watch(filterBusinessLine, () => {
+  filterMicroservice.value = ''
+})
+
+// 从微服务列表中提取所有业务线（去重）
+const microserviceBusinessLines = computed(() => {
+  const bls = new Set(microserviceList.value.map(ms => ms.business_line).filter(Boolean))
+  return Array.from(bls).sort()
+})
+
+// 根据选中的业务线筛选微服务下拉框
+const filteredMicroserviceList = computed(() => {
+  if (!filterBusinessLine.value) {
+    return microserviceList.value
+  }
+  return microserviceList.value.filter(ms => ms.business_line === filterBusinessLine.value)
+})
+
 const importForm = reactive({
-  serviceName: 'Product Service',
-  serviceUrl: 'http://localhost:8778',
+  serviceUrl: '',
   openapiUrl: '',
   microserviceId: null as number | null
 })
 
-// 获取所有业务线
-const businessLines = computed(() => {
-  const lines = new Set<string>()
-  microserviceList.value.forEach(ms => {
-    if (ms.business_line) {
-      lines.add(ms.business_line)
+watch(
+  () => importForm.microserviceId,
+  newId => {
+    if (newId) {
+      const ms = microserviceList.value.find(m => m.id === newId)
+      if (ms) {
+        importForm.serviceUrl = ms.http_base_url
+        importForm.openapiUrl = ms.http_base_url.replace(/\/$/, '') + '/openapi.json'
+      }
+    } else {
+      importForm.serviceUrl = ''
+      importForm.openapiUrl = ''
     }
-  })
-  return Array.from(lines)
-})
+  }
+)
+
+const businessLines = ref<BusinessLine[]>([])
 
 // 筛选后的工具列表
 const filteredTools = computed(() => {
   let result = toolsList.value
 
   if (filterMicroservice.value) {
-    result = result.filter(t => t.microservice_id === filterMicroservice.value)
-  }
-
-  if (filterBusinessLine.value) {
-    const msIds = microserviceList.value
-      .filter(ms => ms.business_line === filterBusinessLine.value)
-      .map(ms => ms.id)
-    result = result.filter(t => t.microservice_id && msIds.includes(t.microservice_id))
+    const filterId = Number(filterMicroservice.value)
+    result = result.filter(t => t.microservice_id === filterId)
   }
 
   return result
@@ -266,11 +293,18 @@ const filteredTools = computed(() => {
 const loadData = async () => {
   loading.value = true
   try {
-    const [tools, microservices] = await Promise.all([getAllTools(), getMicroservices()])
+    const [tools, microservices, bls] = await Promise.all([
+      getAllTools(),
+      getMicroservices(),
+      getBusinessLines()
+    ])
     toolsList.value = tools
     microserviceList.value = microservices
+    businessLines.value = bls
+    console.log('[Tools] Business lines loaded:', bls)
+    console.log('[Tools] Microservices loaded:', microservices)
   } catch (error: any) {
-    Message.error('加载数据失败: ' + error.message)
+    Message.error('加载数据失败：' + error.message)
   } finally {
     loading.value = false
   }
@@ -371,10 +405,14 @@ const handleImport = async () => {
     return
   }
 
+  if (!importForm.microserviceId) {
+    Message.warning('请选择要绑定的微服务')
+    return
+  }
+
   importing.value = true
   try {
     const result = await importOpenAPI({
-      service_name: importForm.serviceName,
       service_url: importForm.serviceUrl,
       openapi_url: importForm.openapiUrl,
       microservice_id: importForm.microserviceId || undefined
@@ -387,6 +425,15 @@ const handleImport = async () => {
     Message.error('导入失败: ' + error.message)
   } finally {
     importing.value = false
+  }
+}
+
+const copyUrl = async () => {
+  try {
+    await navigator.clipboard.writeText(importForm.serviceUrl)
+    Message.success('已复制URL')
+  } catch {
+    Message.error('复制失败')
   }
 }
 
@@ -433,21 +480,31 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-.page-header {
+.filter-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.page-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: #1d2129;
+.filter-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-row .form-col {
+  flex: 1;
 }
 
 .tool-description {

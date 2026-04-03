@@ -11,8 +11,11 @@ export const APP_VERSION = '1.0.0'
 // 默认后端地址
 export const DEFAULT_API_BASE_URL = `http://${window.location.hostname}:8777`
 
-// 默认网关 Key
+// 默认网关 Key (商品服务)
 export const DEFAULT_GATEWAY_KEY = 'sk-defaultkey001:Xy7zA1b2C3d4E5f6G7h8I9j0KlMnOpQrStUvWxYz'
+
+// OA 网关 Key
+export const OA_GATEWAY_KEY = 'sk-oakey001:Xy7zA1b2C3d4E5f6G7h8I9j0KlMnOpQrStUvWxYz'
 
 // 默认 LLM Key (MiniMax JWT)
 export const DEFAULT_LLM_KEY =

@@ -11,22 +11,27 @@
             <a-input v-model="configForm.apiBaseUrl" placeholder="http://localhost:8777" />
           </a-form-item>
           <a-form-item label="网关API Key">
-            <a-input-password v-model="configForm.gatewayKey" placeholder="输入网关API Key" />
+            <a-input-password v-model="configForm.gatewayKey" placeholder="输入网关API Key">
+              <template #append>
+                <a-button @click="verifyGateway">验证</a-button>
+              </template>
+            </a-input-password>
           </a-form-item>
-          <a-form-item label="LLM API Key">
-            <a-input-password
-              v-model="configForm.llmKey"
-              placeholder="输入LLM API Key (MiniMax M2.7)"
-            />
+
+          <!-- 网关信息显示 -->
+          <a-form-item v-if="verifiedGateway" label="已绑定网关">
+            <a-tag color="arcoblue">
+              {{ verifiedGateway.gateway_name }} ({{ verifiedGateway.gateway_id }})
+            </a-tag>
           </a-form-item>
 
           <!-- 微服务选择 -->
-          <a-form-item label="选择微服务">
+          <a-form-item label="微服务">
             <a-select
               v-model="configForm.selectedMicroservices"
-              multiple
               placeholder="选择要连接的微服务"
-              :disabled="connected"
+              :disabled="connected || !verifiedGateway"
+              multiple
               allow-clear
             >
               <a-option v-for="ms in microserviceList" :key="ms.id" :value="ms.id" :label="ms.name">
@@ -42,6 +47,17 @@
                 </a-space>
               </a-option>
             </a-select>
+          </a-form-item>
+
+          <a-form-item label="LLM API Key">
+            <a-input-password
+              v-model="configForm.llmKey"
+              placeholder="输入LLM API Key (MiniMax M2.7)"
+            >
+              <template #append>
+                <a-button :loading="testingLlm" @click="testLlm">测试</a-button>
+              </template>
+            </a-input-password>
           </a-form-item>
 
           <a-form-item>
@@ -275,8 +291,8 @@
 
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ref, reactive, computed, onUnmounted, onMounted } from 'vue'
-import { Message } from '@arco-design/web-vue'
+import { ref, reactive, computed, onUnmounted } from 'vue'
+import { Message, Modal } from '@arco-design/web-vue'
 import {
   IconLink,
   IconClose,
@@ -289,29 +305,41 @@ import {
   IconTool,
   IconCheckCircle,
   IconRight,
-  IconRefresh
+  IconRefresh,
+  IconCheck
 } from '@arco-design/web-vue/es/icon'
 import MarkdownRender from 'markstream-vue'
 import 'markstream-vue/index.css'
-import type { ToolInfo, Microservice, ContentBlock, ChatMessage } from '@/types'
-import { getMicroservices } from '@/api/microservice'
+import type { ToolInfo, Microservice, ChatMessage } from '@/types'
 import {
   WS_MESSAGE_TYPE,
   SUGGESTED_QUESTIONS,
   DEFAULT_GATEWAY_KEY,
-  DEFAULT_LLM_KEY
+  DEFAULT_LLM_KEY,
+  OA_GATEWAY_KEY
 } from '@/constants'
 import { useScrollToBottom } from '@/hooks'
+import { useUserStore } from '@/stores'
 
-let websocket: WebSocket | null = null
-const sessionId = ref('')
+const userStore = useUserStore()
+
+const getDefaultGatewayKey = () => {
+  const roles = userStore.userInfo?.roles || []
+  if (roles.includes('OA_ADMIN')) {
+    return OA_GATEWAY_KEY
+  }
+  return DEFAULT_GATEWAY_KEY
+}
 
 const configForm = reactive({
   apiBaseUrl: `http://${window.location.hostname}:8777`,
-  gatewayKey: DEFAULT_GATEWAY_KEY,
+  gatewayKey: getDefaultGatewayKey(),
   llmKey: DEFAULT_LLM_KEY,
-  selectedMicroservices: [] as number[] // 选中的微服务ID列表
+  selectedMicroservices: [] as number[]
 })
+
+let websocket: WebSocket | null = null
+const sessionId = ref('')
 
 const connected = ref(false)
 const connecting = ref(false)
@@ -322,6 +350,14 @@ const inputMessage = ref('')
 const messages = ref<ChatMessage[]>([])
 const tools = ref<ToolInfo[]>([])
 const microserviceList = ref<Microservice[]>([])
+const verifiedGateway = ref<{
+  gateway_id: string
+  gateway_name: string
+  gateway_desc: string | null
+  microservices: { id: number; name: string; health_status: string }[]
+} | null>(null)
+
+const testingLlm = ref(false)
 
 // 按 microservice_name 分组，过滤掉未绑定的
 const toolsByGroup = computed(() => {
@@ -341,19 +377,78 @@ const currentThinkingRound = ref<number>(0)
 
 const { containerRef: messageListRef, scrollToBottom } = useScrollToBottom()
 
-// 加载微服务列表
-const loadMicroservices = async () => {
+// 自动验证网关Key
+const verifyGateway = async () => {
+  if (!configForm.gatewayKey.trim()) {
+    verifiedGateway.value = null
+    microserviceList.value = []
+    configForm.selectedMicroservices = []
+    return
+  }
   try {
-    microserviceList.value = await getMicroservices()
-  } catch (error) {
-    console.error('加载微服务列表失败:', error)
+    const response = await fetch(`${configForm.apiBaseUrl}/api/chat/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: configForm.gatewayKey
+    })
+    if (response.ok) {
+      const data = await response.json()
+      verifiedGateway.value = data
+      microserviceList.value = data.microservices.map((ms: any) => ({
+        id: ms.id,
+        name: ms.name,
+        health_status: ms.health_status
+      }))
+      configForm.selectedMicroservices = data.microservices.map((ms: any) => ms.id)
+    } else {
+      verifiedGateway.value = null
+      microserviceList.value = []
+      configForm.selectedMicroservices = []
+    }
+  } catch {
+    verifiedGateway.value = null
+    microserviceList.value = []
+    configForm.selectedMicroservices = []
   }
 }
 
-// 页面加载时获取微服务列表
-onMounted(() => {
-  loadMicroservices()
-})
+// 测试LLM Key
+const testLlm = async () => {
+  if (!configForm.llmKey.trim()) {
+    Modal.warning({ title: '提示', content: '请输入 LLM API Key' })
+    return
+  }
+
+  testingLlm.value = true
+
+  try {
+    const response = await fetch(`${configForm.apiBaseUrl}/api/chat/llm/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: configForm.llmKey
+    })
+
+    const data = await response.json()
+    if (data.success) {
+      Modal.success({
+        title: 'LLM 测试成功',
+        content: `模型回复: ${data.reply || '(无内容)'}`
+      })
+    } else {
+      Modal.error({
+        title: 'LLM 测试失败',
+        content: data.message || '未知错误'
+      })
+    }
+  } catch (error: any) {
+    Modal.error({
+      title: 'LLM 测试失败',
+      content: '请求失败: ' + (error.message || '未知错误')
+    })
+  } finally {
+    testingLlm.value = false
+  }
+}
 
 const connect = async () => {
   if (connecting.value || connected.value) return
@@ -370,8 +465,7 @@ const connect = async () => {
       body: JSON.stringify({
         gateway_key: configForm.gatewayKey,
         llm_key: configForm.llmKey,
-        microservice_ids:
-          configForm.selectedMicroservices.length > 0 ? configForm.selectedMicroservices : null
+        microservice_ids: configForm.selectedMicroservices
       })
     })
 
@@ -747,7 +841,19 @@ const formatTime = (date: Date) => {
 }
 
 // 快捷测试问题 - 展示Agent多工具调用能力（从常量导入）
-const allQuestions = [...SUGGESTED_QUESTIONS]
+const getFilteredQuestions = () => {
+  const roles = userStore.userInfo?.roles || []
+  const isOAAdmin = roles.includes('OA_ADMIN')
+
+  if (isOAAdmin) {
+    return SUGGESTED_QUESTIONS.filter(q => q.businessLine === 'oa' || q.businessLine === 'common')
+  }
+  return SUGGESTED_QUESTIONS.filter(
+    q => q.businessLine === 'product' || q.businessLine === 'common'
+  )
+}
+
+const allQuestions = getFilteredQuestions()
 
 // 当前显示的问题
 const displayedQuestions = ref<{ text: string }[]>([])
@@ -756,6 +862,11 @@ const isRefreshing = ref(false)
 
 // 随机选取问题（不重复）
 const refreshQuestions = () => {
+  if (allQuestions.length === 0) {
+    displayedQuestions.value = []
+    return
+  }
+
   isRefreshing.value = true
   setTimeout(() => {
     // 获取未使用过的索引
@@ -776,7 +887,7 @@ const refreshQuestions = () => {
 
     // 随机选取2个
     const shuffled = availableIndices.sort(() => Math.random() - 0.5)
-    const selectedIndices = shuffled.slice(0, 2)
+    const selectedIndices = shuffled.slice(0, Math.min(2, shuffled.length))
 
     // 记录已使用
     selectedIndices.forEach(i => usedIndices.value.add(i))
@@ -847,6 +958,22 @@ onUnmounted(() => {
   margin: 6px 0;
   flex-shrink: 0;
   border-color: #e5e6eb;
+}
+
+.gateway-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gateway-id {
+  font-size: 12px;
+  color: #86909c;
+}
+
+.gateway-placeholder {
+  color: #86909c;
+  font-size: 14px;
 }
 
 .tools-grouped {

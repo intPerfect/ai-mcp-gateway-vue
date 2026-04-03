@@ -179,6 +179,7 @@ import {
   IconRight,
   IconStorage
 } from '@arco-design/web-vue/es/icon'
+import { get } from '@/api/request'
 
 const stats = ref({
   tools: 0,
@@ -189,11 +190,8 @@ const stats = ref({
 
 const loadData = async () => {
   try {
-    const response = await fetch('/api/tools')
-    const result = await response.json()
-    if (result.code === '0000') {
-      stats.value.tools = result.data.total || 0
-    }
+    const result = await get<{ total: number }>('/tools')
+    stats.value.tools = result.total || 0
   } catch (error) {
     console.error('Failed to load data:', error)
   }

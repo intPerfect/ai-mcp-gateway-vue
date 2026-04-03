@@ -4,8 +4,6 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "kill-port": "node -e \"const {execSync}=require('child_process');[5173,5174,5175,5176,5177].forEach(p=>{try{const r=execSync('netstat -ano | findstr :'+p+' | findstr LISTENING',{encoding:'utf8'});r.toString().split('\\n').forEach(l=>{const pid=l.trim().split(/\\s+/)[4];if(pid&&pid!=='0')try{execSync('taskkill /F /PID '+pid,{stdio:'ignore'});}catch(e){}})}catch(e){}});\"",
-    "predev": "npm run kill-port",
     "dev": "vite",
     "build": "vue-tsc && vite build",
     "preview": "vite preview",

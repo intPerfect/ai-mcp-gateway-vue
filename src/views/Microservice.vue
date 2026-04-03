@@ -81,7 +81,11 @@
           />
         </a-form-item>
         <a-form-item label="业务线">
-          <a-input v-model="formData.business_line" placeholder="请输入业务线" />
+          <a-select v-model="formData.business_line_id" placeholder="请选择业务线" allow-clear>
+            <a-option v-for="bl in businessLines" :key="bl.id" :value="bl.id">
+              {{ bl.line_name }}
+            </a-option>
+          </a-select>
         </a-form-item>
         <a-form-item v-if="isEdit" label="状态">
           <a-switch v-model="formData.status" :checked-value="1" :unchecked-value="0" />
@@ -167,6 +171,8 @@ import {
   unbindTool,
   updateToolEnabled
 } from '@/api/microservice'
+import { getBusinessLines } from '@/api/businessLine'
+import type { BusinessLine } from '@/api/businessLine'
 import type {
   Microservice,
   MicroserviceTool,
@@ -212,6 +218,7 @@ const loading = ref(false)
 const submitting = ref(false)
 const toolsLoading = ref(false)
 const microserviceList = ref<Microservice[]>([])
+const businessLines = ref<BusinessLine[]>([])
 const formModalVisible = ref(false)
 const toolsModalVisible = ref(false)
 const isEdit = ref(false)
@@ -223,14 +230,16 @@ const formData = reactive<MicroserviceCreate & { id?: number; status?: number }>
   name: '',
   http_base_url: '',
   description: '',
-  business_line: '',
+  business_line_id: undefined,
   status: 1
 })
 
 const loadMicroservices = async () => {
   loading.value = true
   try {
-    microserviceList.value = await getMicroservices()
+    const [microservices, bls] = await Promise.all([getMicroservices(), getBusinessLines()])
+    microserviceList.value = microservices
+    businessLines.value = bls
   } catch (error: any) {
     Message.error('加载微服务列表失败: ' + error.message)
   } finally {
@@ -292,7 +301,7 @@ const showCreateModal = () => {
     name: '',
     http_base_url: '',
     description: '',
-    business_line: '',
+    business_line_id: undefined,
     status: 1
   })
   formModalVisible.value = true
@@ -305,7 +314,7 @@ const showEditModal = (record: Microservice) => {
     name: record.name,
     http_base_url: record.http_base_url,
     description: record.description,
-    business_line: record.business_line,
+    business_line_id: record.business_line_id,
     status: record.status
   })
   formModalVisible.value = true
@@ -324,7 +333,7 @@ const handleSubmit = async () => {
         name: formData.name,
         http_base_url: formData.http_base_url,
         description: formData.description,
-        business_line: formData.business_line,
+        business_line_id: formData.business_line_id,
         status: formData.status
       }
       await updateMicroservice(formData.id, updateData)
@@ -334,7 +343,7 @@ const handleSubmit = async () => {
         name: formData.name,
         http_base_url: formData.http_base_url,
         description: formData.description,
-        business_line: formData.business_line
+        business_line_id: formData.business_line_id
       }
       await createMicroservice(createData)
       Message.success('创建成功')

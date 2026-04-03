@@ -10,6 +10,7 @@ export interface Microservice {
   name: string
   http_base_url: string
   description: string
+  business_line_id?: number
   business_line: string
   health_status: HealthStatus
   last_check_time: string | null
@@ -23,14 +24,14 @@ export interface MicroserviceCreate {
   name: string
   http_base_url: string
   description?: string
-  business_line?: string
+  business_line_id?: number
 }
 
 export interface MicroserviceUpdate {
   name?: string
   http_base_url?: string
   description?: string
-  business_line?: string
+  business_line_id?: number
   status?: number
 }
 

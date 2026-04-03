@@ -15,9 +15,15 @@
       </div>
       <a-menu
         v-model:selected-keys="selectedKeys"
+        v-model:open-keys="openKeys"
         theme="light"
-        mode="inline"
-        @menu-item-click="handleMenuClick"
+        mode="vertical"
+        @menu-item-click="
+          (key: string) => {
+            console.log('[Menu] clicked:', key)
+            router.push('/' + key)
+          }
+        "
       >
         <a-menu-item key="home">
           <template #icon><icon-home /></template>
@@ -39,6 +45,22 @@
           <template #icon><icon-message /></template>
           <span>对话测试</span>
         </a-menu-item>
+        <a-sub-menu key="system" :popup="false">
+          <template #icon><icon-settings /></template>
+          <template #title>系统管理</template>
+          <a-menu-item key="system/user">
+            <template #icon><icon-user /></template>
+            <span>用户管理</span>
+          </a-menu-item>
+          <a-menu-item key="system/role">
+            <template #icon><icon-user-group /></template>
+            <span>角色管理</span>
+          </a-menu-item>
+          <a-menu-item v-if="userStore.isSuperAdmin" key="system/business-line">
+            <template #icon><icon-branch /></template>
+            <span>业务线管理</span>
+          </a-menu-item>
+        </a-sub-menu>
       </a-menu>
     </a-layout-sider>
 
@@ -57,15 +79,32 @@
               <icon-notification />
             </a-button>
           </a-tooltip>
-          <a-dropdown>
+          <a-dropdown trigger="hover" :popup-max-height="400">
             <div class="user-dropdown">
               <a-avatar class="avatar">
                 <icon-user />
               </a-avatar>
-              <span class="user-name">管理员</span>
+              <span class="user-name">{{ currentUserName }}</span>
               <icon-down class="dropdown-arrow" />
             </div>
             <template #content>
+              <a-dgroup title="当前用户信息">
+                <div style="padding: 8px 12px; font-size: 12px; color: var(--color-text-2)">
+                  <div>用户名: {{ userStore.username }}</div>
+                  <div>角色: {{ currentUserRoles }}</div>
+                </div>
+              </a-dgroup>
+              <a-divider style="margin: 4px 0" />
+              <a-dgroup title="快速切换用户">
+                <a-doption v-for="user in testUsers" :key="user.username" @click="switchUser(user)">
+                  <template #icon><icon-user /></template>
+                  <span>{{ user.label }}</span>
+                  <a-tag v-if="userStore.username === user.username" size="small" color="arcoblue">
+                    当前
+                  </a-tag>
+                </a-doption>
+              </a-dgroup>
+              <a-divider style="margin: 4px 0" />
               <a-doption>
                 <template #icon><icon-settings /></template>
                 个人设置
@@ -75,7 +114,7 @@
                 帮助文档
               </a-doption>
               <a-divider style="margin: 4px 0" />
-              <a-doption>
+              <a-doption @click="handleLogout">
                 <template #icon><icon-export /></template>
                 退出登录
               </a-doption>
@@ -95,6 +134,8 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { Message } from '@arco-design/web-vue'
+import { useUserStore } from '@/stores/user'
 import {
   IconHome,
   IconApps,
@@ -107,21 +148,62 @@ import {
   IconQuestionCircle,
   IconExport,
   IconDown,
-  IconRobot
+  IconRobot,
+  IconUserGroup,
+  IconBranch
 } from '@arco-design/web-vue/es/icon'
 
 const router = useRouter()
 const route = useRoute()
+const userStore = useUserStore()
+
+// 快速切换用户的测试账号列表
+const testUsers = [
+  { username: 'admin', password: 'admin123', label: '超级管理员', roles: ['SUPER_ADMIN'] },
+  { username: 'oa_admin', password: '123456', label: 'OA管理员', roles: ['OA_ADMIN'] },
+  { username: 'product_admin', password: '123456', label: '商品管理员', roles: ['PRODUCT_ADMIN'] }
+]
 
 const collapsed = ref(false)
 const selectedKeys = ref(['home'])
+const openKeys = ref(['system']) // 展开的子菜单
+
+// 当前用户显示名称
+const currentUserName = computed(() => userStore.realName || userStore.username || '未登录')
+const currentUserRoles = computed(() => userStore.roles.join(', ') || '无角色')
+
+// 切换用户
+async function switchUser(user: (typeof testUsers)[0]) {
+  try {
+    Message.loading({ content: `正在切换到 ${user.label}...`, id: 'switch-user' })
+    await userStore.logout()
+    await userStore.login({ username: user.username, password: user.password })
+    Message.success({ content: `已切换到 ${user.label}`, id: 'switch-user' })
+    router.replace('/')
+  } catch (e: any) {
+    Message.error({ content: `切换失败: ${e.message}`, id: 'switch-user' })
+  }
+}
+
+// 退出登录
+async function handleLogout() {
+  try {
+    await userStore.logout()
+    router.replace('/login')
+  } catch {
+    router.replace('/login')
+  }
+}
 
 const pageTitleMap: Record<string, string> = {
   home: '首页',
   gateway: '网关管理',
   microservice: '微服务管理',
   tools: '工具管理',
-  chat: '对话测试'
+  chat: '对话测试',
+  'system/user': '用户管理',
+  'system/role': '角色管理',
+  'system/business-line': '业务线管理'
 }
 
 const currentPageTitle = computed(() => {
@@ -134,7 +216,10 @@ const routeKeyMap: Record<string, string> = {
   gateway: 'gateway',
   microservice: 'microservice',
   tools: 'tools',
-  chat: 'chat'
+  chat: 'chat',
+  'system/user': 'system/user',
+  'system/role': 'system/role',
+  'system/business-line': 'system/business-line'
 }
 
 watch(
@@ -147,13 +232,20 @@ watch(
     const key = path.replace('/', '')
     if (key && routeKeyMap[key]) {
       selectedKeys.value = [key]
+      // 如果是系统管理下的页面，自动展开子菜单
+      if (key.startsWith('system/')) {
+        if (!openKeys.value.includes('system')) {
+          openKeys.value = ['system']
+        }
+      }
     }
   },
   { immediate: true }
 )
 
 const handleMenuClick = (key: string) => {
-  if (key && typeof key === 'string') {
+  console.log('[Menu] menu-item-click key:', key)
+  if (key) {
     router.push('/' + key)
   }
 }

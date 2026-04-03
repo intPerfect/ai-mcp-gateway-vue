@@ -14,7 +14,8 @@ import type {
   LlmUpdate,
   LlmKey,
   LlmKeyCreate,
-  LlmKeyResult
+  LlmKeyResult,
+  Microservice
 } from '@/types'
 
 // ============================================
@@ -129,4 +130,25 @@ export function createLlmKey(data: LlmKeyCreate): Promise<LlmKeyResult> {
  */
 export function deleteLlmKey(id: number): Promise<void> {
   return del<void>(`/llm-keys/${id}`)
+}
+
+// ============================================
+// 网关-微服务绑定 API
+// ============================================
+
+/**
+ * 获取网关绑定的微服务列表
+ */
+export function getGatewayMicroservices(gatewayId: string): Promise<Microservice[]> {
+  return get<Microservice[]>(`/gateways/${gatewayId}/microservices`)
+}
+
+/**
+ * 设置网关绑定的微服务（覆盖）
+ */
+export function setGatewayMicroservices(
+  gatewayId: string,
+  microserviceIds: number[]
+): Promise<void> {
+  return put<void>(`/gateways/${gatewayId}/microservices`, { microservice_ids: microserviceIds })
 }
