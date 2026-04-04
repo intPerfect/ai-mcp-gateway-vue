@@ -42,6 +42,7 @@ export interface MicroserviceTool {
   tool_description: string
   microservice_id: number | null
   microservice_name: string | null
+  business_line: string
   enabled: number
   call_status: CallStatus
   last_call_time: string | null

@@ -108,7 +108,14 @@ watch(filterBusinessLine, () => {
 })
 
 const microserviceBusinessLines = computed(() => {
-  const bls = new Set(microserviceList.value.map(ms => ms.business_line).filter(Boolean))
+  // 从工具列表和微服务列表中提取所有业务线
+  const bls = new Set<string>()
+  toolsList.value.forEach(t => {
+    if (t.business_line) bls.add(t.business_line)
+  })
+  microserviceList.value.forEach(ms => {
+    if (ms.business_line) bls.add(ms.business_line)
+  })
   return Array.from(bls).sort()
 })
 
@@ -117,8 +124,8 @@ const filteredTools = computed(() => {
 
   if (filterBusinessLine.value) {
     result = result.filter(t => {
-      const ms = microserviceList.value.find(m => m.id === t.microservice_id)
-      return ms?.business_line === filterBusinessLine.value
+      // 优先使用工具自带的 business_line
+      return t.business_line === filterBusinessLine.value
     })
   }
 

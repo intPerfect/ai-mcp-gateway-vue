@@ -30,14 +30,21 @@
               </a-space>
             </template>
           </a-table-column>
-          <a-table-column title="业务线" data-index="business_lines" :width="120">
+          <a-table-column title="业务线管理员" data-index="managed_business_lines" :width="140">
             <template #cell="{ record }">
               <a-space>
-                <a-tag v-for="bl in record.business_lines" :key="bl.id" size="small" color="green">
+                <a-tag
+                  v-for="bl in record.managed_business_lines"
+                  :key="bl.id"
+                  size="small"
+                  color="green"
+                >
                   {{ bl.line_name }}
                 </a-tag>
                 <span
-                  v-if="!record.business_lines || record.business_lines.length === 0"
+                  v-if="
+                    !record.managed_business_lines || record.managed_business_lines.length === 0
+                  "
                   class="text-gray"
                 >
                   -

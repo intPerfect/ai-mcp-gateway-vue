@@ -391,7 +391,8 @@ const groupedTools = computed<BusinessLineGroup[]>(() => {
 
   filtered.forEach(tool => {
     const ms = tool.microservice_id ? msMap.get(tool.microservice_id) : null
-    const bl = ms?.business_line || '未分类'
+    // 优先使用工具自带的 business_line（后端始终返回非空值）
+    const bl = tool.business_line || ms?.business_line || '未分类'
     const msId = tool.microservice_id || null
 
     if (!blMap.has(bl)) {

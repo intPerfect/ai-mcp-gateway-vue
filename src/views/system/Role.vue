@@ -147,56 +147,112 @@
             <template #cell="{ record }">
               <a-checkbox
                 v-if="record.isGroup"
-                :model-value="record.children.every((c: any) => c.can_create)"
+                :model-value="
+                  isBlAdmin(record.business_line_id) ||
+                  record.children.every((c: any) => c.can_create)
+                "
                 :indeterminate="
+                  !isBlAdmin(record.business_line_id) &&
                   record.children.some((c: any) => c.can_create) &&
                   !record.children.every((c: any) => c.can_create)
                 "
+                :disabled="isBlAdmin(record.business_line_id)"
                 @change="(val: any) => onGroupPermCheckChange(record, 'can_create', val)"
               />
-              <a-checkbox v-else v-model="record.can_create" />
+              <a-checkbox
+                v-else
+                :model-value="isBlAdmin(record.business_line_id) || record.can_create"
+                :disabled="isBlAdmin(record.business_line_id)"
+                @change="
+                  (val: any) => {
+                    record.can_create = val
+                  }
+                "
+              />
             </template>
           </a-table-column>
           <a-table-column title="查看" :width="80" align="center">
             <template #cell="{ record }">
               <a-checkbox
                 v-if="record.isGroup"
-                :model-value="record.children.every((c: any) => c.can_read)"
+                :model-value="
+                  isBlAdmin(record.business_line_id) ||
+                  record.children.every((c: any) => c.can_read)
+                "
                 :indeterminate="
+                  !isBlAdmin(record.business_line_id) &&
                   record.children.some((c: any) => c.can_read) &&
                   !record.children.every((c: any) => c.can_read)
                 "
+                :disabled="isBlAdmin(record.business_line_id)"
                 @change="(val: any) => onGroupPermCheckChange(record, 'can_read', val)"
               />
-              <a-checkbox v-else v-model="record.can_read" />
+              <a-checkbox
+                v-else
+                :model-value="isBlAdmin(record.business_line_id) || record.can_read"
+                :disabled="isBlAdmin(record.business_line_id)"
+                @change="
+                  (val: any) => {
+                    record.can_read = val
+                  }
+                "
+              />
             </template>
           </a-table-column>
           <a-table-column title="编辑" :width="80" align="center">
             <template #cell="{ record }">
               <a-checkbox
                 v-if="record.isGroup"
-                :model-value="record.children.every((c: any) => c.can_update)"
+                :model-value="
+                  isBlAdmin(record.business_line_id) ||
+                  record.children.every((c: any) => c.can_update)
+                "
                 :indeterminate="
+                  !isBlAdmin(record.business_line_id) &&
                   record.children.some((c: any) => c.can_update) &&
                   !record.children.every((c: any) => c.can_update)
                 "
+                :disabled="isBlAdmin(record.business_line_id)"
                 @change="(val: any) => onGroupPermCheckChange(record, 'can_update', val)"
               />
-              <a-checkbox v-else v-model="record.can_update" />
+              <a-checkbox
+                v-else
+                :model-value="isBlAdmin(record.business_line_id) || record.can_update"
+                :disabled="isBlAdmin(record.business_line_id)"
+                @change="
+                  (val: any) => {
+                    record.can_update = val
+                  }
+                "
+              />
             </template>
           </a-table-column>
           <a-table-column title="删除" :width="80" align="center">
             <template #cell="{ record }">
               <a-checkbox
                 v-if="record.isGroup"
-                :model-value="record.children.every((c: any) => c.can_delete)"
+                :model-value="
+                  isBlAdmin(record.business_line_id) ||
+                  record.children.every((c: any) => c.can_delete)
+                "
                 :indeterminate="
+                  !isBlAdmin(record.business_line_id) &&
                   record.children.some((c: any) => c.can_delete) &&
                   !record.children.every((c: any) => c.can_delete)
                 "
+                :disabled="isBlAdmin(record.business_line_id)"
                 @change="(val: any) => onGroupPermCheckChange(record, 'can_delete', val)"
               />
-              <a-checkbox v-else v-model="record.can_delete" />
+              <a-checkbox
+                v-else
+                :model-value="isBlAdmin(record.business_line_id) || record.can_delete"
+                :disabled="isBlAdmin(record.business_line_id)"
+                @change="
+                  (val: any) => {
+                    record.can_delete = val
+                  }
+                "
+              />
             </template>
           </a-table-column>
           <a-table-column title="对话" :width="80" align="center">
@@ -289,10 +345,24 @@ function onGroupPermCheckChange(group: any, perm: string, checked: boolean) {
   }
 }
 
+// 判断某业务线是否被设为管理员
+function isBlAdmin(blId: number | undefined | null): boolean {
+  return !!blId && blAdminIds.value.includes(blId)
+}
+
 function toggleBlAdmin(blId: number, checked: boolean) {
   if (checked) {
     if (!blAdminIds.value.includes(blId)) {
       blAdminIds.value.push(blId)
+    }
+    // 自动勾选该业务线下所有网关的增删改查权限
+    for (const perm of gatewayPermissions.value) {
+      if ((perm.business_line_id || 0) === blId) {
+        perm.can_create = true
+        perm.can_read = true
+        perm.can_update = true
+        perm.can_delete = true
+      }
     }
   } else {
     blAdminIds.value = blAdminIds.value.filter(id => id !== blId)
@@ -413,8 +483,15 @@ async function saveGatewayPermissions() {
 
   savingGatewayPermissions.value = true
   try {
+    // 保存前：管理员业务线下的网关强制设为增删改查全开
+    const permsToSave = gatewayPermissions.value.map(perm => {
+      if (isBlAdmin(perm.business_line_id)) {
+        return { ...perm, can_create: true, can_read: true, can_update: true, can_delete: true }
+      }
+      return perm
+    })
     // 保存网关权限
-    await put(`/roles/${permissionRole.value.id}/gateway-permissions`, gatewayPermissions.value)
+    await put(`/roles/${permissionRole.value.id}/gateway-permissions`, permsToSave)
 
     // 保存业务线管理员权限
     await put(`/roles/${permissionRole.value.id}/bl-admin`, blAdminIds.value)
