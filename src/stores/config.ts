@@ -4,24 +4,17 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { getStorage, setStorage } from '@/utils'
-import {
-  DEFAULT_API_BASE_URL,
-  DEFAULT_GATEWAY_KEY,
-  DEFAULT_LLM_KEY,
-  STORAGE_KEYS
-} from '@/constants'
+import { DEFAULT_API_BASE_URL, DEFAULT_GATEWAY_KEY, STORAGE_KEYS } from '@/constants'
 import type { ChatConfigForm } from '@/types'
 
 export const useConfigStore = defineStore('config', () => {
-  // 从本地存储加载配置
   const savedConfig = getStorage<ChatConfigForm>(STORAGE_KEYS.CONFIG)
 
-  // 状态
   const config = ref<ChatConfigForm>(
     savedConfig || {
       apiBaseUrl: DEFAULT_API_BASE_URL,
       gatewayKey: DEFAULT_GATEWAY_KEY,
-      llmKey: DEFAULT_LLM_KEY,
+      llmConfigId: '',
       selectedMicroservices: []
     }
   )

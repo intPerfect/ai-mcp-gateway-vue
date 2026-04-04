@@ -1,18 +1,45 @@
 <template>
   <div class="microservice-page">
-    <div class="page-header">
-      <span class="page-title">微服务管理</span>
-      <a-button type="primary" @click="showCreateModal">
-        <template #icon><icon-plus /></template>
-        新增微服务
-      </a-button>
-    </div>
     <a-card :bordered="false">
+      <div class="filter-section">
+        <div class="filter-row">
+          <div class="filter-left">
+            <a-select
+              v-model="filterBusinessLine"
+              placeholder="选择业务线"
+              allow-clear
+              style="width: 160px"
+            >
+              <a-option value="">全部业务线</a-option>
+              <a-option v-for="bl in businessLineOptions" :key="bl" :value="bl">
+                {{ bl }}
+              </a-option>
+            </a-select>
+            <a-input
+              v-model="filterKeyword"
+              placeholder="搜索微服务名称"
+              allow-clear
+              style="width: 200px"
+            />
+            <a-tag color="arcoblue">共 {{ filteredMicroservices.length }} 个微服务</a-tag>
+          </div>
+          <div class="filter-right">
+            <a-button type="primary" @click="loadMicroservices">
+              <template #icon><icon-refresh /></template>
+              刷新
+            </a-button>
+            <a-button type="primary" status="success" @click="showCreateModal">
+              <template #icon><icon-plus /></template>
+              新增微服务
+            </a-button>
+          </div>
+        </div>
+      </div>
       <a-table
         :columns="columns"
-        :data="microserviceList"
+        :data="filteredMicroservices"
         :loading="loading"
-        :pagination="false"
+        :pagination="{ pageSize: 20 }"
         row-key="id"
       >
         <template #name="{ record }">
@@ -27,10 +54,12 @@
           <span>{{ record.business_line || '-' }}</span>
         </template>
         <template #toolCount="{ record }">
-          <a-badge
-            :count="record.tool_count || 0"
-            :dot-style="{ background: 'rgb(var(--primary-6))' }"
-          />
+          <div class="tool-count-cell">
+            <a-badge
+              :count="record.tool_count || 0"
+              :dot-style="{ background: 'rgb(var(--primary-6))' }"
+            />
+          </div>
         </template>
         <template #status="{ record }">
           <a-tag :color="record.status === 1 ? 'green' : 'red'">
@@ -38,16 +67,13 @@
           </a-tag>
         </template>
         <template #operations="{ record }">
-          <a-space>
+          <a-space :size="4">
             <a-button type="text" size="small" @click="handleHealthCheck(record)">
               <template #icon><icon-check-circle /></template>
-              检查
             </a-button>
-            <a-tooltip content="编辑">
-              <a-button type="text" size="small" @click="showEditModal(record)">
-                <template #icon><icon-edit /></template>
-              </a-button>
-            </a-tooltip>
+            <a-button type="text" size="small" @click="showEditModal(record)">
+              <template #icon><icon-edit /></template>
+            </a-button>
             <a-popconfirm content="确定要删除该微服务吗？" @ok="handleDelete(record.id)">
               <a-button type="text" status="danger" size="small">
                 <template #icon><icon-delete /></template>
@@ -101,75 +127,37 @@
       :footer="false"
       class="tools-modal"
     >
-      <a-tabs default-active-key="binded">
-        <a-tab-pane key="binded" title="已绑定工具">
-          <a-table
-            :columns="toolColumns"
-            :data="bindedTools"
-            :loading="toolsLoading"
-            :pagination="false"
-            row-key="tool_id"
-            size="small"
-          >
-            <template #callStatus="{ record }">
-              <a-tooltip :content="getCallStatusTooltip(record)">
-                <span class="call-status">{{ getCallStatusIcon(record.call_status) }}</span>
-              </a-tooltip>
-            </template>
-            <template #enabled="{ record }">
-              <a-switch
-                v-model="record.enabled"
-                :checked-value="1"
-                :unchecked-value="0"
-                size="small"
-                @change="handleToolEnabledChange(record)"
-              />
-            </template>
-            <template #operations="{ record }">
-              <a-button type="text" size="small" @click="handleUnbindTool(record.tool_id)">
-                解绑
-              </a-button>
-            </template>
-          </a-table>
-        </a-tab-pane>
-        <a-tab-pane key="unbind" title="未绑定工具">
-          <a-table
-            :columns="unbindToolColumns"
-            :data="unbindTools"
-            :loading="toolsLoading"
-            :pagination="false"
-            row-key="tool_id"
-            size="small"
-          >
-            <template #operations="{ record }">
-              <a-button type="primary" size="small" @click="handleBindTool(record.tool_id)">
-                绑定
-              </a-button>
-            </template>
-          </a-table>
-        </a-tab-pane>
-      </a-tabs>
+      <GroupedToolList
+        :tools="bindedTools"
+        :microservices="microserviceList"
+        :loading="toolsLoading"
+        :microservice-id="currentMicroservice?.id"
+        @refresh="loadTools"
+      />
     </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import type { TableColumn } from '@arco-design/web-vue'
-import { IconPlus, IconCheckCircle, IconEdit, IconDelete } from '@arco-design/web-vue/es/icon'
+import {
+  IconPlus,
+  IconCheckCircle,
+  IconEdit,
+  IconDelete,
+  IconRefresh
+} from '@arco-design/web-vue/es/icon'
+import GroupedToolList from '@/components/GroupedToolList.vue'
 import {
   getMicroservices,
   createMicroservice,
   updateMicroservice,
   deleteMicroservice,
   checkMicroserviceHealth,
-  getMicroserviceTools,
-  getUnbindTools,
-  bindTool,
-  unbindTool,
-  updateToolEnabled
+  getMicroserviceTools
 } from '@/api/microservice'
 import { getBusinessLines } from '@/api/businessLine'
 import type { BusinessLine } from '@/api/businessLine'
@@ -181,37 +169,27 @@ import type {
 } from '@/types'
 
 const columns: TableColumn[] = [
+  { title: '业务线', dataIndex: 'business_line', slotName: 'businessLine', width: 100 },
   {
     title: '服务名称',
     dataIndex: 'name',
     slotName: 'name',
-    width: 150,
+    width: 140,
     ellipsis: true,
     tooltip: true
   },
-  { title: 'HTTP地址', dataIndex: 'http_base_url', ellipsis: true, tooltip: true },
+  { title: 'HTTP地址', dataIndex: 'http_base_url', width: 200, ellipsis: true, tooltip: true },
   { title: '描述', dataIndex: 'description', ellipsis: true, tooltip: true },
-  { title: '业务线', dataIndex: 'business_line', slotName: 'businessLine', width: 100 },
-  { title: '健康状态', dataIndex: 'health_status', slotName: 'healthStatus', width: 80 },
-  { title: '工具数', dataIndex: 'tool_count', slotName: 'toolCount', width: 70 },
-  { title: '状态', dataIndex: 'status', slotName: 'status', width: 70 },
-  { title: '操作', slotName: 'operations', width: 140 }
-]
-
-const toolColumns: TableColumn[] = [
-  { title: '工具名称', dataIndex: 'tool_name', width: 180 },
-  { title: '描述', dataIndex: 'tool_description', ellipsis: true },
-  { title: '调用状态', slotName: 'callStatus', width: 100 },
-  { title: '调用次数', dataIndex: 'call_count', width: 80 },
-  { title: '错误次数', dataIndex: 'error_count', width: 80 },
-  { title: '启用', slotName: 'enabled', width: 80 },
-  { title: '操作', slotName: 'operations', width: 80 }
-]
-
-const unbindToolColumns: TableColumn[] = [
-  { title: '工具名称', dataIndex: 'tool_name', width: 180 },
-  { title: '描述', dataIndex: 'tool_description', ellipsis: true },
-  { title: '操作', slotName: 'operations', width: 100 }
+  {
+    title: '健康状态',
+    dataIndex: 'health_status',
+    slotName: 'healthStatus',
+    width: 80,
+    align: 'center'
+  },
+  { title: '工具数', dataIndex: 'tool_count', slotName: 'toolCount', width: 60, align: 'center' },
+  { title: '状态', dataIndex: 'status', slotName: 'status', width: 70, align: 'center' },
+  { title: '操作', slotName: 'operations', width: 110, align: 'center' }
 ]
 
 const loading = ref(false)
@@ -219,12 +197,30 @@ const submitting = ref(false)
 const toolsLoading = ref(false)
 const microserviceList = ref<Microservice[]>([])
 const businessLines = ref<BusinessLine[]>([])
+const filterBusinessLine = ref<string>('')
+const filterKeyword = ref<string>('')
+
+const businessLineOptions = computed(() => {
+  const bls = new Set(microserviceList.value.map(ms => ms.business_line).filter(Boolean))
+  return Array.from(bls).sort()
+})
+
+const filteredMicroservices = computed(() => {
+  let result = microserviceList.value
+  if (filterBusinessLine.value) {
+    result = result.filter(ms => ms.business_line === filterBusinessLine.value)
+  }
+  if (filterKeyword.value) {
+    const keyword = filterKeyword.value.toLowerCase()
+    result = result.filter(ms => ms.name.toLowerCase().includes(keyword))
+  }
+  return result
+})
 const formModalVisible = ref(false)
 const toolsModalVisible = ref(false)
 const isEdit = ref(false)
 const currentMicroservice = ref<Microservice | null>(null)
 const bindedTools = ref<MicroserviceTool[]>([])
-const unbindTools = ref<MicroserviceTool[]>([])
 
 const formData = reactive<MicroserviceCreate & { id?: number; status?: number }>({
   name: '',
@@ -267,32 +263,6 @@ const getHealthText = (status: string) => {
     default:
       return '未知'
   }
-}
-
-const getCallStatusIcon = (status: string) => {
-  switch (status) {
-    case 'sunny':
-      return '☀️ 晴朗'
-    case 'cloudy':
-      return '☁️ 阴云'
-    case 'rainy':
-      return '🌧️ 下雨'
-    default:
-      return '❓ 未知'
-  }
-}
-
-const getCallStatusTooltip = (record: MicroserviceTool) => {
-  const parts = [`状态: ${getCallStatusIcon(record.call_status)}`]
-  if (record.last_call_code) {
-    parts.push(`返回码: ${record.last_call_code}`)
-  }
-  if (record.last_call_time) {
-    parts.push(`最后调用: ${record.last_call_time}`)
-  }
-  parts.push(`调用次数: ${record.call_count}`)
-  parts.push(`错误次数: ${record.error_count}`)
-  return parts.join('\n')
 }
 
 const showCreateModal = () => {
@@ -392,51 +362,11 @@ const loadTools = async () => {
 
   toolsLoading.value = true
   try {
-    const [binded, unbind] = await Promise.all([
-      getMicroserviceTools(currentMicroservice.value.id),
-      getUnbindTools()
-    ])
-    bindedTools.value = binded
-    unbindTools.value = unbind
+    bindedTools.value = await getMicroserviceTools(currentMicroservice.value.id)
   } catch (error: any) {
     Message.error('加载工具列表失败: ' + error.message)
   } finally {
     toolsLoading.value = false
-  }
-}
-
-const handleBindTool = async (toolId: number) => {
-  if (!currentMicroservice.value) return
-
-  try {
-    await bindTool(toolId, { microservice_id: currentMicroservice.value.id })
-    Message.success('绑定成功')
-    loadTools()
-    loadMicroservices()
-  } catch (error: any) {
-    Message.error(error.message || '绑定失败')
-  }
-}
-
-const handleUnbindTool = async (toolId: number) => {
-  try {
-    await unbindTool(toolId)
-    Message.success('解绑成功')
-    loadTools()
-    loadMicroservices()
-  } catch (error: any) {
-    Message.error(error.message || '解绑失败')
-  }
-}
-
-const handleToolEnabledChange = async (record: MicroserviceTool) => {
-  try {
-    await updateToolEnabled(record.tool_id, { enabled: record.enabled })
-    Message.success(record.enabled === 1 ? '已启用' : '已禁用')
-  } catch (error: any) {
-    Message.error(error.message || '操作失败')
-    // 恢复原状态
-    record.enabled = record.enabled === 1 ? 0 : 1
   }
 }
 
@@ -450,50 +380,74 @@ onMounted(() => {
   height: calc(100vh - 88px);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .microservice-page :deep(.arco-card) {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0;
-}
-
-.microservice-page :deep(.arco-card-body) {
-  flex: 1;
-  overflow: hidden;
-  min-width: 0;
+  overflow-x: hidden;
 }
 
 .microservice-page :deep(.arco-card-header) {
   display: none;
 }
 
-.microservice-page :deep(.arco-table-container) {
-  overflow-x: auto;
+.microservice-page :deep(.arco-card-body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.microservice-page :deep(.arco-table-wrapper) {
+  overflow: hidden;
+}
+
+.microservice-page :deep(.arco-table-td) {
+  vertical-align: middle !important;
+}
+
+.microservice-page :deep(.arco-table-td .arco-space-item) {
+  margin-bottom: 0 !important;
+}
+
+.filter-section {
+  flex-shrink: 0;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #f7f8fa;
+  border-radius: 8px;
+}
+
+.filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.filter-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-count-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .call-status {
   font-size: 16px;
   cursor: pointer;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.page-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: #1d2129;
 }
 
 .tools-modal :deep(.arco-modal-body) {

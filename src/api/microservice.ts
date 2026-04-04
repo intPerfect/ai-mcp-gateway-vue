@@ -62,13 +62,6 @@ export function getAllTools(): Promise<MicroserviceTool[]> {
 }
 
 /**
- * 获取未绑定微服务的工具列表
- */
-export function getUnbindTools(): Promise<MicroserviceTool[]> {
-  return get<MicroserviceTool[]>('/tools/unbind')
-}
-
-/**
  * 绑定工具到微服务
  */
 export function bindTool(toolId: number, data: ToolBindRequest): Promise<void> {
@@ -76,15 +69,18 @@ export function bindTool(toolId: number, data: ToolBindRequest): Promise<void> {
 }
 
 /**
- * 解绑工具
- */
-export function unbindTool(toolId: number): Promise<void> {
-  return put<void>(`/tools/${toolId}/unbind`)
-}
-
-/**
  * 更新工具启用状态
  */
 export function updateToolEnabled(toolId: number, data: ToolEnabledRequest): Promise<void> {
   return put<void>(`/tools/${toolId}/enabled`, data)
+}
+
+/**
+ * 更新工具信息
+ */
+export function updateTool(
+  toolId: number,
+  data: { tool_name?: string; tool_description?: string }
+): Promise<void> {
+  return put<void>(`/tools/${toolId}`, data)
 }

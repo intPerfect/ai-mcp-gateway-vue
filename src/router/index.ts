@@ -64,6 +64,12 @@ const routes = [
         name: 'BusinessLine',
         component: () => import('../views/system/BusinessLine.vue'),
         meta: { requiresAuth: true, permission: 'business_line:manage' }
+      },
+      {
+        path: 'system/usage',
+        name: 'Usage',
+        component: () => import('../views/system/Usage.vue'),
+        meta: { requiresAuth: true, permission: 'admin:usage' }
       }
     ]
   },

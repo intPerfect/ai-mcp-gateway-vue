@@ -21,13 +21,13 @@ export function useWebSocket() {
     status.value = 'connecting'
 
     try {
-      // 获取 session
       const sessionResponse = await fetch(`${config.apiBaseUrl}/api/chat/session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           gateway_key: config.gatewayKey,
-          llm_key: config.llmKey
+          llm_config_id: config.llmConfigId,
+          microservice_ids: config.selectedMicroservices
         })
       })
 

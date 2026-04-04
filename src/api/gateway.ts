@@ -9,12 +9,9 @@ import type {
   GatewayKey,
   GatewayKeyCreate,
   GatewayKeyResult,
-  Llm,
-  LlmCreate,
-  LlmUpdate,
-  LlmKey,
-  LlmKeyCreate,
-  LlmKeyResult,
+  LlmConfig,
+  LlmConfigCreate,
+  LlmConfigUpdate,
   Microservice
 } from '@/types'
 
@@ -76,60 +73,60 @@ export function deleteGatewayKey(id: number): Promise<void> {
 }
 
 // ============================================
-// LLM 配置 API
+// LLM 配置 API (v10.0)
 // ============================================
 
 /**
- * 获取LLM列表
+ * 获取LLM配置列表
  */
-export function getLlms(): Promise<Llm[]> {
-  return get<Llm[]>('/llms')
+export function getLlmConfigs(): Promise<LlmConfig[]> {
+  return get<LlmConfig[]>('/llm-configs')
 }
 
 /**
  * 创建LLM配置
  */
-export function createLlm(data: LlmCreate): Promise<Llm> {
-  return post<Llm>('/llms', data)
+export function createLlmConfig(data: LlmConfigCreate): Promise<LlmConfig> {
+  return post<LlmConfig>('/llm-configs', data)
 }
 
 /**
  * 更新LLM配置
  */
-export function updateLlm(id: number, data: LlmUpdate): Promise<Llm> {
-  return put<Llm>(`/llms/${id}`, data)
+export function updateLlmConfig(id: number, data: LlmConfigUpdate): Promise<LlmConfig> {
+  return put<LlmConfig>(`/llm-configs/${id}`, data)
 }
 
 /**
  * 删除LLM配置
  */
-export function deleteLlm(id: number): Promise<void> {
-  return del<void>(`/llms/${id}`)
+export function deleteLlmConfig(id: number): Promise<void> {
+  return del<void>(`/llm-configs/${id}`)
 }
 
 // ============================================
-// LLM Key API
+// 网关-LLM绑定 API (v10.0)
 // ============================================
 
 /**
- * 获取LLM Key列表
+ * 获取网关绑定的LLM配置列表
  */
-export function getLlmKeys(): Promise<LlmKey[]> {
-  return get<LlmKey[]>('/llm-keys')
+export function getGatewayLlms(gatewayId: string): Promise<LlmConfig[]> {
+  return get<LlmConfig[]>(`/gateways/${gatewayId}/llms`)
 }
 
 /**
- * 创建LLM Key（返回完整Key，仅此一次）
+ * 绑定LLM配置到网关
  */
-export function createLlmKey(data: LlmKeyCreate): Promise<LlmKeyResult> {
-  return post<LlmKeyResult>('/llm-keys', data)
+export function bindLlmToGateway(gatewayId: string, llmConfigId: string): Promise<void> {
+  return post<void>(`/gateways/${gatewayId}/llms`, { llm_config_id: llmConfigId })
 }
 
 /**
- * 删除LLM Key
+ * 解绑LLM配置
  */
-export function deleteLlmKey(id: number): Promise<void> {
-  return del<void>(`/llm-keys/${id}`)
+export function unbindLlmFromGateway(gatewayId: string, llmConfigId: string): Promise<void> {
+  return del<void>(`/gateways/${gatewayId}/llms/${llmConfigId}`)
 }
 
 // ============================================

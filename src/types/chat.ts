@@ -59,6 +59,6 @@ export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | '
 export interface ChatConfigForm {
   apiBaseUrl: string
   gatewayKey: string
-  llmKey: string
+  llmConfigId: string // 改为选择LLM配置ID
   selectedMicroservices: number[]
 }

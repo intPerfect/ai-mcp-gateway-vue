@@ -23,7 +23,6 @@ export function useWebSocket() {
     chatStore.setConnecting(true)
 
     try {
-      // 第一步：调用 HTTP 接口验证 Key 并获取 session
       const sessionResponse = await fetch(`${configStore.config.apiBaseUrl}/api/chat/session`, {
         method: 'POST',
         headers: {
@@ -31,7 +30,8 @@ export function useWebSocket() {
         },
         body: JSON.stringify({
           gateway_key: configStore.config.gatewayKey,
-          llm_key: configStore.config.llmKey
+          llm_config_id: configStore.config.llmConfigId,
+          microservice_ids: configStore.config.selectedMicroservices
         })
       })
 

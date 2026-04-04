@@ -59,62 +59,49 @@ export interface GatewayKeyResult {
   message: string
 }
 
-// LLM 配置
-export interface Llm {
+// LLM 配置 (v10.0 统一)
+export interface LlmConfig {
   id: number
-  llm_id: string
-  llm_name: string
-  llm_type: string
+  config_id: string
+  config_name: string
+  api_type: string // openai/anthropic
   base_url: string
-  default_model: string | null
+  model_name: string
   description: string | null
   status: number
   create_time: string | null
 }
 
-export interface LlmCreate {
-  llm_id: string
-  llm_name: string
-  llm_type: string
+export interface LlmConfigCreate {
+  config_name: string
+  api_type: string
   base_url: string
-  default_model?: string
+  model_name: string
+  api_key: string
   description?: string
 }
 
-export interface LlmUpdate {
-  llm_name?: string
-  llm_type?: string
+export interface LlmConfigUpdate {
+  config_name?: string
+  api_type?: string
   base_url?: string
-  default_model?: string
+  model_name?: string
+  api_key?: string
   description?: string
   status?: number
 }
 
-// LLM Key
-export interface LlmKey {
-  id: number
-  llm_id: string
-  key_id: string
-  key_preview: string
-  rate_limit: number
-  expire_time: string | null
-  remark: string | null
-  status: number
-  create_time: string | null
+// 网关-LLM绑定
+export interface GatewayLlmBind {
+  gateway_id: string
+  llm_config_ids: string[]
 }
 
-export interface LlmKeyCreate {
-  llm_id: string
-  rate_limit?: number
-  expire_days?: number
-  remark?: string
-}
-
-export interface LlmKeyResult {
-  id: number
-  llm_id: string
-  llm_key: string
-  key_preview: string
-  expire_time: string
-  message: string
+// 对话用 LLM 配置信息
+export interface LlmConfigInfo {
+  config_id: string
+  config_name: string
+  api_type: string
+  model_name: string
+  description: string | null
 }

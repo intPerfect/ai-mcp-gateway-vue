@@ -12,8 +12,8 @@ export interface BusinessLine {
 }
 
 export const getBusinessLines = async (): Promise<BusinessLine[]> => {
-  const result = await get<{ data: BusinessLine[] }>('/business-lines')
-  return result?.data || []
+  const result = await get<BusinessLine[]>('/business-lines')
+  return result || []
 }
 
 export const createBusinessLine = async (data: {

@@ -15,13 +15,13 @@
           <template #icon><icon-plus /></template>
           新建Key
         </a-button>
-        <a-button v-else-if="activeTab === 'llms'" type="primary" @click="showLlmModal()">
+        <a-button
+          v-else-if="activeTab === 'llmConfigs'"
+          type="primary"
+          @click="showLlmConfigModal()"
+        >
           <template #icon><icon-plus /></template>
-          新建LLM
-        </a-button>
-        <a-button v-else-if="activeTab === 'llmKeys'" type="primary" @click="showLlmKeyModal()">
-          <template #icon><icon-plus /></template>
-          新建Key
+          新建LLM配置
         </a-button>
       </template>
       <!-- 网关配置 -->
@@ -31,18 +31,7 @@
           网关配置
         </template>
         <a-card :bordered="false">
-          <a-table
-            :columns="gatewayColumns"
-            :data="gateways"
-            :loading="loading"
-            :pagination="false"
-            row-key="id"
-          >
-            <template #auth="{ record }">
-              <a-tag :color="record.auth === 1 ? 'green' : 'gray'">
-                {{ record.auth === 1 ? '已启用' : '未启用' }}
-              </a-tag>
-            </template>
+          <a-table :data="gateways" :columns="gatewayColumns" :pagination="false" row-key="id">
             <template #microservices="{ record }">
               <a-space wrap>
                 <a-tag
@@ -63,13 +52,22 @@
               </a-tag>
             </template>
             <template #actions="{ record }">
-              <a-button type="text" size="small" @click="showBindMicroserviceModal(record)">
-                绑定微服务
-              </a-button>
-              <a-button type="text" size="small" @click="showGatewayModal(record)">编辑</a-button>
-              <a-button type="text" size="small" status="danger" @click="deleteGateway(record.id)">
-                删除
-              </a-button>
+              <a-space :size="4">
+                <a-button type="text" size="small" @click="showBindMicroserviceModal(record)">
+                  绑定微服务
+                </a-button>
+                <a-button type="text" size="small" @click="showGatewayModal(record)">
+                  <template #icon><icon-edit /></template>
+                </a-button>
+                <a-button
+                  type="text"
+                  size="small"
+                  status="danger"
+                  @click="deleteGateway(record.id)"
+                >
+                  <template #icon><icon-delete /></template>
+                </a-button>
+              </a-space>
             </template>
           </a-table>
         </a-card>
@@ -94,6 +92,35 @@
                 <span class="masked-key">{{ record.key_preview }}</span>
               </a-tooltip>
             </template>
+            <template #usage="{ record }">
+              <div v-if="keyUsageMap[record.key_id]" class="usage-cell">
+                <span class="usage-text">
+                  <span
+                    :class="{
+                      'usage-exceeded':
+                        keyUsageMap[record.key_id].current_count >= record.rate_limit
+                    }"
+                  >
+                    {{ keyUsageMap[record.key_id].current_count }}
+                  </span>
+                  <span class="usage-sep">/</span>
+                  <span>{{ record.rate_limit }}</span>
+                </span>
+                <a-progress
+                  :percent="keyUsageMap[record.key_id].current_count / record.rate_limit"
+                  :status="
+                    keyUsageMap[record.key_id].current_count >= record.rate_limit
+                      ? 'danger'
+                      : 'normal'
+                  "
+                  size="small"
+                  :show-text="false"
+                  :stroke-width="6"
+                  class="usage-progress"
+                />
+              </div>
+              <span v-else class="usage-empty">0/{{ record.rate_limit }}</span>
+            </template>
             <template #status="{ record }">
               <a-tag :color="record.status === 1 ? 'green' : 'red'">
                 {{ record.status === 1 ? '启用' : '禁用' }}
@@ -113,53 +140,24 @@
         </a-card>
       </a-tab-pane>
 
-      <!-- LLM配置 -->
-      <a-tab-pane key="llms">
+      <!-- LLM配置 (v10.0 统一) -->
+      <a-tab-pane key="llmConfigs">
         <template #title>
           <icon-robot />
           LLM配置
         </template>
         <a-card :bordered="false">
           <a-table
-            :columns="llmColumns"
-            :data="llms"
+            :columns="llmConfigColumns"
+            :data="llmConfigs"
             :loading="loading"
             :pagination="false"
             row-key="id"
           >
-            <template #status="{ record }">
-              <a-tag :color="record.status === 1 ? 'green' : 'red'">
-                {{ record.status === 1 ? '启用' : '禁用' }}
+            <template #api_type="{ record }">
+              <a-tag :color="record.api_type === 'openai' ? 'green' : 'purple'">
+                {{ record.api_type }}
               </a-tag>
-            </template>
-            <template #actions="{ record }">
-              <a-button type="text" size="small" @click="showLlmModal(record)">编辑</a-button>
-              <a-button type="text" size="small" status="danger" @click="deleteLlm(record.id)">
-                删除
-              </a-button>
-            </template>
-          </a-table>
-        </a-card>
-      </a-tab-pane>
-
-      <!-- LLM Key -->
-      <a-tab-pane key="llmKeys">
-        <template #title>
-          <icon-lock />
-          LLM Key
-        </template>
-        <a-card :bordered="false">
-          <a-table
-            :columns="llmKeyColumns"
-            :data="llmKeys"
-            :loading="loading"
-            :pagination="false"
-            row-key="id"
-          >
-            <template #key_preview="{ record }">
-              <a-tooltip :content="record.key_preview">
-                <span class="masked-key">{{ record.key_preview }}</span>
-              </a-tooltip>
             </template>
             <template #status="{ record }">
               <a-tag :color="record.status === 1 ? 'green' : 'red'">
@@ -167,7 +165,13 @@
               </a-tag>
             </template>
             <template #actions="{ record }">
-              <a-button type="text" size="small" status="danger" @click="deleteLlmKey(record.id)">
+              <a-button type="text" size="small" @click="showLlmConfigModal(record)">编辑</a-button>
+              <a-button
+                type="text"
+                size="small"
+                status="danger"
+                @click="deleteLlmConfig(record.id)"
+              >
                 删除
               </a-button>
             </template>
@@ -200,9 +204,6 @@
         <a-form-item label="版本">
           <a-input v-model="gatewayForm.version" placeholder="1.0.0" />
         </a-form-item>
-        <a-form-item label="启用认证">
-          <a-switch v-model="gatewayForm.auth" :checked-value="1" :unchecked-value="0" />
-        </a-form-item>
       </a-form>
     </a-modal>
 
@@ -221,7 +222,7 @@
             </a-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="额度限制(次/小时)">
+        <a-form-item label="调用限额(次/5小时)">
           <a-input-number
             v-model="gatewayKeyForm.rate_limit"
             :min="0"
@@ -263,73 +264,37 @@
       </div>
     </a-modal>
 
-    <!-- LLM弹窗 -->
+    <!-- LLM配置弹窗 (v10.0) -->
     <a-modal
-      v-model:visible="llmModalVisible"
-      :title="llmForm.id ? '编辑LLM' : '新建LLM'"
+      v-model:visible="llmConfigModalVisible"
+      :title="llmConfigForm.id ? '编辑LLM配置' : '新建LLM配置'"
       :ok-loading="saving"
-      @ok="saveLlm"
+      @ok="saveLlmConfig"
     >
-      <a-form :model="llmForm" layout="vertical">
-        <a-form-item label="LLM ID" :required="!llmForm.id">
-          <a-input v-model="llmForm.llm_id" :disabled="!!llmForm.id" placeholder="qwen" />
+      <a-form :model="llmConfigForm" layout="vertical">
+        <a-form-item label="配置名称" required>
+          <a-input v-model="llmConfigForm.config_name" placeholder="我的GPT-4配置" />
         </a-form-item>
-        <a-form-item label="LLM名称" required>
-          <a-input v-model="llmForm.llm_name" placeholder="通义千问" />
-        </a-form-item>
-        <a-form-item label="类型" required>
-          <a-select v-model="llmForm.llm_type" placeholder="选择类型">
-            <a-option value="qwen">通义千问</a-option>
-            <a-option value="deepseek">DeepSeek</a-option>
-            <a-option value="minimax">MiniMax</a-option>
-            <a-option value="openai">OpenAI</a-option>
+        <a-form-item label="API类型" required>
+          <a-select v-model="llmConfigForm.api_type" placeholder="选择API类型">
+            <a-option value="openai">OpenAI兼容</a-option>
+            <a-option value="anthropic">Anthropic</a-option>
           </a-select>
         </a-form-item>
         <a-form-item label="API地址" required>
-          <a-input v-model="llmForm.base_url" placeholder="https://api.example.com/v1" />
+          <a-input v-model="llmConfigForm.base_url" placeholder="https://api.openai.com/v1" />
         </a-form-item>
-        <a-form-item label="默认模型">
-          <a-input v-model="llmForm.default_model" placeholder="gpt-4o" />
+        <a-form-item label="模型名称" required>
+          <a-input v-model="llmConfigForm.model_name" placeholder="gpt-4o" />
+        </a-form-item>
+        <a-form-item label="API Key" :required="!llmConfigForm.id">
+          <a-input-password
+            v-model="llmConfigForm.api_key"
+            :placeholder="llmConfigForm.id ? '留空保持不变' : '输入API Key'"
+          />
         </a-form-item>
         <a-form-item label="描述">
-          <a-input v-model="llmForm.description" placeholder="模型描述" />
-        </a-form-item>
-      </a-form>
-    </a-modal>
-
-    <!-- LLM Key弹窗 -->
-    <a-modal
-      v-model:visible="llmKeyModalVisible"
-      title="新建LLM Key"
-      :ok-loading="saving"
-      @ok="saveLlmKey"
-    >
-      <a-form :model="llmKeyForm" layout="vertical">
-        <a-form-item label="关联LLM" required>
-          <a-select v-model="llmKeyForm.llm_id" placeholder="选择LLM">
-            <a-option v-for="l in llms" :key="l.llm_id" :value="l.llm_id">
-              {{ l.llm_name }}
-            </a-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="额度限制(次/小时)">
-          <a-input-number
-            v-model="llmKeyForm.rate_limit"
-            :min="0"
-            :step="100"
-            style="width: 100%"
-          />
-        </a-form-item>
-        <a-form-item label="有效期(天)">
-          <a-input-number
-            v-model="llmKeyForm.expire_days"
-            :min="1"
-            :max="3650"
-            style="width: 100%"
-          />
-        </a-form-item>
-        <a-form-item label="备注">
-          <a-input v-model="llmKeyForm.remark" placeholder="备注信息" />
+          <a-input v-model="llmConfigForm.description" placeholder="配置描述" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -360,7 +325,14 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
-import { IconDesktop, IconSafe, IconRobot, IconLock, IconPlus } from '@arco-design/web-vue/es/icon'
+import {
+  IconDesktop,
+  IconSafe,
+  IconRobot,
+  IconPlus,
+  IconEdit,
+  IconDelete
+} from '@arco-design/web-vue/es/icon'
 import {
   getGateways,
   createGateway as apiCreateGateway,
@@ -369,18 +341,16 @@ import {
   getGatewayKeys,
   createGatewayKey as apiCreateGatewayKey,
   deleteGatewayKey as apiDeleteGatewayKey,
-  getLlms,
-  createLlm as apiCreateLlm,
-  updateLlm as apiUpdateLlm,
-  deleteLlm as apiDeleteLlm,
-  getLlmKeys,
-  createLlmKey as apiCreateLlmKey,
-  deleteLlmKey as apiDeleteLlmKey,
+  getLlmConfigs,
+  createLlmConfig as apiCreateLlmConfig,
+  updateLlmConfig as apiUpdateLlmConfig,
+  deleteLlmConfig as apiDeleteLlmConfig,
   getGatewayMicroservices,
   setGatewayMicroservices
 } from '@/api/gateway'
 import { getMicroservices } from '@/api/microservice'
-import type { Gateway, GatewayKey, Llm, LlmKey, Microservice } from '@/types'
+import { getKeyUsageList } from '@/api/usage'
+import type { Gateway, GatewayKey, LlmConfig, Microservice } from '@/types'
 const activeTab = ref('gateways')
 const loading = ref(false)
 const saving = ref(false)
@@ -388,58 +358,47 @@ const saving = ref(false)
 // 数据列表
 const gateways = ref<Gateway[]>([])
 const gatewayKeys = ref<GatewayKey[]>([])
-const llms = ref<Llm[]>([])
-const llmKeys = ref<LlmKey[]>([])
+const llmConfigs = ref<LlmConfig[]>([])
 const allMicroservices = ref<Microservice[]>([])
 const gatewayMicroservicesMap = ref<Record<string, Microservice[]>>({})
+const keyUsageMap = ref<Record<string, { current_count: number; remaining: number }>>({})
 
 // 表格列定义
 const gatewayColumns = [
-  { title: 'ID', dataIndex: 'id', width: 60 },
-  { title: '网关ID', dataIndex: 'gateway_id', width: 120 },
-  { title: '网关名称', dataIndex: 'gateway_name', width: 150 },
-  { title: '已绑定微服务', slotName: 'microservices', width: 200 },
-  { title: '描述', dataIndex: 'gateway_desc', ellipsis: true },
-  { title: '认证', slotName: 'auth', width: 80 },
-  { title: '状态', slotName: 'status', width: 80 },
-  { title: '操作', slotName: 'actions', width: 120 }
+  { title: '网关ID', dataIndex: 'gateway_id', width: 110 },
+  { title: '网关名称', dataIndex: 'gateway_name', width: 120 },
+  { title: '已绑定微服务', slotName: 'microservices', width: 180 },
+  { title: '描述', dataIndex: 'gateway_desc', width: 200, ellipsis: true },
+  { title: '状态', slotName: 'status', width: 70, align: 'center' },
+  { title: '操作', slotName: 'actions', width: 150, align: 'center' }
 ]
 
 const gatewayKeyColumns = [
-  { title: 'ID', dataIndex: 'id', width: 60 },
-  { title: '网关', dataIndex: 'gateway_id', width: 120 },
-  { title: 'Key预览', slotName: 'key_preview', ellipsis: true },
-  { title: '额度/小时', dataIndex: 'rate_limit', width: 100 },
-  { title: '过期时间', dataIndex: 'expire_time', width: 180 },
-  { title: '状态', slotName: 'status', width: 80 },
-  { title: '操作', slotName: 'actions', width: 80 }
+  { title: '网关ID', dataIndex: 'gateway_id', width: 100 },
+  { title: 'Key预览', slotName: 'key_preview', width: 180 },
+  { title: '配额(次/5h)', dataIndex: 'rate_limit', width: 100, align: 'right' },
+  { title: '使用情况', slotName: 'usage', width: 180 },
+  { title: '过期时间', dataIndex: 'expire_time', width: 160 },
+  { title: '状态', slotName: 'status', width: 70, align: 'center' },
+  { title: '操作', slotName: 'actions', width: 70, align: 'center' }
 ]
 
-const llmColumns = [
-  { title: 'ID', dataIndex: 'id', width: 60 },
-  { title: 'LLM名称', dataIndex: 'llm_name', width: 120 },
-  { title: '类型', dataIndex: 'llm_type', width: 100 },
-  { title: 'API地址', dataIndex: 'base_url', ellipsis: true },
-  { title: '默认模型', dataIndex: 'default_model', width: 120 },
-  { title: '状态', slotName: 'status', width: 80 },
-  { title: '操作', slotName: 'actions', width: 120 }
+const llmConfigColumns = [
+  { title: '配置名称', dataIndex: 'config_name', width: 120 },
+  { title: 'API类型', slotName: 'api_type', width: 90, align: 'center' },
+  { title: 'API地址', dataIndex: 'base_url', width: 200, ellipsis: true },
+  { title: '模型名称', dataIndex: 'model_name', width: 130 },
+  { title: '描述', dataIndex: 'description', width: 150, ellipsis: true },
+  { title: '状态', slotName: 'status', width: 70, align: 'center' },
+  { title: '操作', slotName: 'actions', width: 100, align: 'center' }
 ]
 
-const llmKeyColumns = [
-  { title: 'ID', dataIndex: 'id', width: 60 },
-  { title: 'LLM', dataIndex: 'llm_id', width: 100 },
-  { title: 'Key预览', slotName: 'key_preview', ellipsis: true },
-  { title: '额度/小时', dataIndex: 'rate_limit', width: 100 },
-  { title: '过期时间', dataIndex: 'expire_time', width: 180 },
-  { title: '状态', slotName: 'status', width: 80 },
-  { title: '操作', slotName: 'actions', width: 80 }
-]
+// 已移除 llmKeyColumns - v10.0不再需要单独的LLM Key表
 
 // 弹窗状态
 const gatewayModalVisible = ref(false)
 const gatewayKeyModalVisible = ref(false)
-const llmModalVisible = ref(false)
-const llmKeyModalVisible = ref(false)
+const llmConfigModalVisible = ref(false) // v10.0: 改为 llmConfigModalVisible
 const keyResultModalVisible = ref(false)
 const bindMicroserviceModalVisible = ref(false)
 const createdKey = ref('')
@@ -452,33 +411,28 @@ const gatewayForm = reactive({
   gateway_id: '',
   gateway_name: '',
   gateway_desc: '',
-  version: '1.0.0',
-  auth: 0
+  version: '1.0.0'
 })
 
 const gatewayKeyForm = reactive({
   gateway_id: '',
-  rate_limit: 1000,
+  rate_limit: 600,
   expire_days: 365,
   remark: ''
 })
 
-const llmForm = reactive({
+// LLM配置表单 - v10.0
+const llmConfigForm = reactive({
   id: null as number | null,
-  llm_id: '',
-  llm_name: '',
-  llm_type: '',
+  config_name: '',
+  api_type: 'openai',
   base_url: '',
-  default_model: '',
+  model_name: '',
+  api_key: '',
   description: ''
 })
 
-const llmKeyForm = reactive({
-  llm_id: '',
-  rate_limit: 1000,
-  expire_days: 365,
-  remark: ''
-})
+// 已移除 llmKeyForm - v10.0不再需要单独的LLM Key表单
 
 // 加载数据
 const loadGateways = async () => {
@@ -504,26 +458,30 @@ const loadGateways = async () => {
 const loadGatewayKeys = async () => {
   try {
     gatewayKeys.value = await getGatewayKeys()
+
+    const usageList = await getKeyUsageList()
+    const map: Record<string, { current_count: number; remaining: number }> = {}
+    for (const u of usageList) {
+      map[u.key_id] = {
+        current_count: u.current_count,
+        remaining: u.remaining
+      }
+    }
+    keyUsageMap.value = map
   } catch (e) {
     console.error('加载网关Key失败', e)
   }
 }
 
-const loadLlms = async () => {
+const loadLlmConfigs = async () => {
   try {
-    llms.value = await getLlms()
+    llmConfigs.value = await getLlmConfigs()
   } catch (e) {
-    console.error('加载LLM失败', e)
+    console.error('加载LLM配置失败', e)
   }
 }
 
-const loadLlmKeys = async () => {
-  try {
-    llmKeys.value = await getLlmKeys()
-  } catch (e) {
-    console.error('加载LLM Key失败', e)
-  }
-}
+// 已移除 loadLlmKeys - v10.0不再需要单独的LLM Key
 
 const loadMicroservices = async () => {
   try {
@@ -535,13 +493,7 @@ const loadMicroservices = async () => {
 
 const loadAll = async () => {
   loading.value = true
-  await Promise.all([
-    loadGateways(),
-    loadGatewayKeys(),
-    loadLlms(),
-    loadLlmKeys(),
-    loadMicroservices()
-  ])
+  await Promise.all([loadGateways(), loadGatewayKeys(), loadLlmConfigs(), loadMicroservices()])
   loading.value = false
 }
 
@@ -553,14 +505,12 @@ const showGatewayModal = (record?: Gateway) => {
     gatewayForm.gateway_name = record.gateway_name
     gatewayForm.gateway_desc = record.gateway_desc || ''
     gatewayForm.version = record.version || '1.0.0'
-    gatewayForm.auth = record.auth || 0
   } else {
     gatewayForm.id = null
     gatewayForm.gateway_id = ''
     gatewayForm.gateway_name = ''
     gatewayForm.gateway_desc = ''
     gatewayForm.version = '1.0.0'
-    gatewayForm.auth = 0
   }
   gatewayModalVisible.value = true
 }
@@ -595,7 +545,7 @@ const deleteGateway = async (id: number) => {
 // 网关Key操作
 const showGatewayKeyModal = () => {
   gatewayKeyForm.gateway_id = gateways.value[0]?.gateway_id || ''
-  gatewayKeyForm.rate_limit = 1000
+  gatewayKeyForm.rate_limit = 600
   gatewayKeyForm.expire_days = 365
   gatewayKeyForm.remark = ''
   gatewayKeyModalVisible.value = true
@@ -625,87 +575,58 @@ const deleteGatewayKey = async (id: number) => {
   }
 }
 
-// LLM操作
-const showLlmModal = (record?: Llm) => {
+// LLM配置操作 - v10.0
+const showLlmConfigModal = (record?: LlmConfig) => {
   if (record) {
-    llmForm.id = record.id
-    llmForm.llm_id = record.llm_id
-    llmForm.llm_name = record.llm_name
-    llmForm.llm_type = record.llm_type
-    llmForm.base_url = record.base_url
-    llmForm.default_model = record.default_model || ''
-    llmForm.description = record.description || ''
+    llmConfigForm.id = record.id
+    llmConfigForm.config_name = record.config_name
+    llmConfigForm.api_type = record.api_type
+    llmConfigForm.base_url = record.base_url
+    llmConfigForm.model_name = record.model_name
+    llmConfigForm.api_key = '' // 编辑时不显示原有Key
+    llmConfigForm.description = record.description || ''
   } else {
-    llmForm.id = null
-    llmForm.llm_id = ''
-    llmForm.llm_name = ''
-    llmForm.llm_type = ''
-    llmForm.base_url = ''
-    llmForm.default_model = ''
-    llmForm.description = ''
+    llmConfigForm.id = null
+    llmConfigForm.config_name = ''
+    llmConfigForm.api_type = 'openai'
+    llmConfigForm.base_url = ''
+    llmConfigForm.model_name = ''
+    llmConfigForm.api_key = ''
+    llmConfigForm.description = ''
   }
-  llmModalVisible.value = true
+  llmConfigModalVisible.value = true
 }
 
-const saveLlm = async () => {
+const saveLlmConfig = async () => {
   saving.value = true
   try {
-    if (llmForm.id) {
-      await apiUpdateLlm(llmForm.id, llmForm)
+    if (llmConfigForm.id) {
+      const updateData: Record<string, any> = { ...llmConfigForm }
+      if (!updateData['api_key']) delete updateData['api_key'] // 不更新空的Key
+      await apiUpdateLlmConfig(llmConfigForm.id!, updateData)
     } else {
-      await apiCreateLlm(llmForm)
+      await apiCreateLlmConfig(llmConfigForm)
     }
     Message.success('保存成功')
-    llmModalVisible.value = false
-    loadLlms()
+    llmConfigModalVisible.value = false
+    loadLlmConfigs()
   } catch (e: any) {
     Message.error(e.message || '保存失败')
   }
   saving.value = false
 }
 
-const deleteLlm = async (id: number) => {
+const deleteLlmConfig = async (id: number) => {
   try {
-    await apiDeleteLlm(id)
+    await apiDeleteLlmConfig(id)
     Message.success('删除成功')
-    loadLlms()
+    loadLlmConfigs()
   } catch (e: any) {
     Message.error(e.message || '删除失败')
   }
 }
 
-// LLM Key操作
-const showLlmKeyModal = () => {
-  llmKeyForm.llm_id = llms.value[0]?.llm_id || ''
-  llmKeyForm.rate_limit = 1000
-  llmKeyForm.expire_days = 365
-  llmKeyForm.remark = ''
-  llmKeyModalVisible.value = true
-}
-
-const saveLlmKey = async () => {
-  saving.value = true
-  try {
-    const result = await apiCreateLlmKey(llmKeyForm)
-    createdKey.value = result.llm_key
-    keyResultModalVisible.value = true
-    llmKeyModalVisible.value = false
-    loadLlmKeys()
-  } catch (e: any) {
-    Message.error(e.message || '创建失败')
-  }
-  saving.value = false
-}
-
-const deleteLlmKey = async (id: number) => {
-  try {
-    await apiDeleteLlmKey(id)
-    Message.success('删除成功')
-    loadLlmKeys()
-  } catch (e: any) {
-    Message.error(e.message || '删除失败')
-  }
-}
+// 已移除 LLM Key操作 - v10.0不再需要单独的LLM Key
 
 // 复制Key
 const copyCreatedKey = () => {
@@ -767,6 +688,14 @@ onMounted(() => {
   display: none;
 }
 
+.main-tabs :deep(.arco-table-td) {
+  vertical-align: middle !important;
+}
+
+.main-tabs :deep(.arco-table-td .arco-space-item) {
+  margin-bottom: 0 !important;
+}
+
 .masked-key {
   font-family: 'Consolas', 'Monaco', monospace;
   cursor: pointer;
@@ -796,5 +725,39 @@ onMounted(() => {
 .unbound {
   color: #86909c;
   font-size: 12px;
+}
+
+.usage-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.usage-text {
+  font-size: 13px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+.usage-sep {
+  color: #86909c;
+  margin: 0 2px;
+}
+
+.usage-exceeded {
+  color: #f53f3f;
+  font-weight: 500;
+}
+
+.usage-progress {
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.usage-empty {
+  font-size: 13px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: #86909c;
 }
 </style>

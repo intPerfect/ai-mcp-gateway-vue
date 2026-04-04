@@ -27,37 +27,34 @@
 
           <!-- 微服务选择 -->
           <a-form-item label="微服务">
-            <a-select
+            <MicroserviceSelect
               v-model="configForm.selectedMicroservices"
-              placeholder="选择要连接的微服务"
+              :microservices="microserviceList"
               :disabled="connected || !verifiedGateway"
-              multiple
-              allow-clear
-            >
-              <a-option v-for="ms in microserviceList" :key="ms.id" :value="ms.id" :label="ms.name">
-                <a-space>
-                  <span>{{ ms.name }}</span>
-                  <a-tag v-if="ms.health_status === 'healthy'" color="green" size="small">
-                    健康
-                  </a-tag>
-                  <a-tag v-else-if="ms.health_status === 'unhealthy'" color="red" size="small">
-                    异常
-                  </a-tag>
-                  <a-tag v-else color="gray" size="small">未知</a-tag>
-                </a-space>
-              </a-option>
-            </a-select>
+              :show-health-status="true"
+              placeholder="选择要连接的微服务"
+            />
           </a-form-item>
 
-          <a-form-item label="LLM API Key">
-            <a-input-password
-              v-model="configForm.llmKey"
-              placeholder="输入LLM API Key (MiniMax M2.7)"
+          <!-- LLM配置选择 -->
+          <a-form-item v-if="verifiedGateway" label="LLM模型">
+            <a-select
+              v-model="configForm.llmConfigId"
+              placeholder="选择LLM模型"
+              :disabled="connected"
+              allow-clear
             >
-              <template #append>
-                <a-button :loading="testingLlm" @click="testLlm">测试</a-button>
+              <template #label>
+                <template v-if="selectedLlm">
+                  <span>{{ selectedLlm.config_name }}</span>
+                  <a-tag size="small" color="arcoblue">{{ selectedLlm.model_name }}</a-tag>
+                </template>
               </template>
-            </a-input-password>
+              <a-option v-for="llm in llmConfigList" :key="llm.config_id" :value="llm.config_id">
+                <span>{{ llm.config_name }}</span>
+                <a-tag size="small" color="arcoblue">{{ llm.model_name }}</a-tag>
+              </a-option>
+            </a-select>
           </a-form-item>
 
           <a-form-item>
@@ -310,12 +307,12 @@ import {
 } from '@arco-design/web-vue/es/icon'
 import MarkdownRender from 'markstream-vue'
 import 'markstream-vue/index.css'
-import type { ToolInfo, Microservice, ChatMessage } from '@/types'
+import MicroserviceSelect from '@/components/MicroserviceSelect.vue'
+import type { ToolInfo, Microservice, ChatMessage, LlmConfigInfo } from '@/types'
 import {
   WS_MESSAGE_TYPE,
   SUGGESTED_QUESTIONS,
   DEFAULT_GATEWAY_KEY,
-  DEFAULT_LLM_KEY,
   OA_GATEWAY_KEY
 } from '@/constants'
 import { useScrollToBottom } from '@/hooks'
@@ -334,7 +331,7 @@ const getDefaultGatewayKey = () => {
 const configForm = reactive({
   apiBaseUrl: `http://${window.location.hostname}:8777`,
   gatewayKey: getDefaultGatewayKey(),
-  llmKey: DEFAULT_LLM_KEY,
+  llmConfigId: '', // v10.0: 改为选择LLM配置ID
   selectedMicroservices: [] as number[]
 })
 
@@ -355,9 +352,16 @@ const verifiedGateway = ref<{
   gateway_name: string
   gateway_desc: string | null
   microservices: { id: number; name: string; health_status: string }[]
+  llm_configs: LlmConfigInfo[] // v10.0: 新增LLM配置列表
 } | null>(null)
 
-const testingLlm = ref(false)
+const llmConfigList = ref<LlmConfigInfo[]>([]) // v10.0: LLM配置列表
+
+const selectedLlm = computed(() =>
+  llmConfigList.value.find(l => l.config_id === configForm.llmConfigId)
+)
+
+// 已移除 testingLlm - v10.0不再需要手动测试LLM Key
 
 // 按 microservice_name 分组，过滤掉未绑定的
 const toolsByGroup = computed(() => {
@@ -382,7 +386,9 @@ const verifyGateway = async () => {
   if (!configForm.gatewayKey.trim()) {
     verifiedGateway.value = null
     microserviceList.value = []
+    llmConfigList.value = [] // v10.0: 清空LLM配置列表
     configForm.selectedMicroservices = []
+    configForm.llmConfigId = ''
     return
   }
   try {
@@ -397,61 +403,42 @@ const verifyGateway = async () => {
       microserviceList.value = data.microservices.map((ms: any) => ({
         id: ms.id,
         name: ms.name,
+        business_line: ms.business_line || '',
         health_status: ms.health_status
       }))
       configForm.selectedMicroservices = data.microservices.map((ms: any) => ms.id)
+      // v10.0: 设置LLM配置列表
+      llmConfigList.value = data.llm_configs || []
+      // 默认选择第一个LLM配置
+      if (llmConfigList.value.length > 0) {
+        configForm.llmConfigId = llmConfigList.value[0].config_id
+      }
     } else {
       verifiedGateway.value = null
       microserviceList.value = []
+      llmConfigList.value = []
       configForm.selectedMicroservices = []
+      configForm.llmConfigId = ''
     }
   } catch {
     verifiedGateway.value = null
     microserviceList.value = []
+    llmConfigList.value = []
     configForm.selectedMicroservices = []
+    configForm.llmConfigId = ''
   }
 }
 
-// 测试LLM Key
-const testLlm = async () => {
-  if (!configForm.llmKey.trim()) {
-    Modal.warning({ title: '提示', content: '请输入 LLM API Key' })
-    return
-  }
-
-  testingLlm.value = true
-
-  try {
-    const response = await fetch(`${configForm.apiBaseUrl}/api/chat/llm/test`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: configForm.llmKey
-    })
-
-    const data = await response.json()
-    if (data.success) {
-      Modal.success({
-        title: 'LLM 测试成功',
-        content: `模型回复: ${data.reply || '(无内容)'}`
-      })
-    } else {
-      Modal.error({
-        title: 'LLM 测试失败',
-        content: data.message || '未知错误'
-      })
-    }
-  } catch (error: any) {
-    Modal.error({
-      title: 'LLM 测试失败',
-      content: '请求失败: ' + (error.message || '未知错误')
-    })
-  } finally {
-    testingLlm.value = false
-  }
-}
+// v10.0: 已移除 testLlm 函数 - LLM配置由后端统一管理
 
 const connect = async () => {
   if (connecting.value || connected.value) return
+
+  // v10.0: 验证是否选择了LLM配置
+  if (!configForm.llmConfigId) {
+    Message.warning('请选择LLM模型')
+    return
+  }
 
   connecting.value = true
 
@@ -464,7 +451,7 @@ const connect = async () => {
       },
       body: JSON.stringify({
         gateway_key: configForm.gatewayKey,
-        llm_key: configForm.llmKey,
+        llm_config_id: configForm.llmConfigId, // v10.0: 改为使用llm_config_id
         microservice_ids: configForm.selectedMicroservices
       })
     })
