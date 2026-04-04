@@ -218,6 +218,7 @@ export function useWebSocket() {
 
     const toolId = (data['id'] as string) || (data['name'] as string)
     const toolName = data['name'] as string
+    console.log(`[WS] tool_use_start: id=${toolId}, name=${toolName}`)
 
     // 记录当前工具调用
     chatStore.setCurrentToolCall({
@@ -242,6 +243,17 @@ export function useWebSocket() {
   const handleToolCall = (data: WSEvent) => {
     const toolId = (data['tool_id'] as string) || (data['tool'] as string)
     const toolName = data['tool'] as string
+    const hasArgs = data['arguments'] != null
+
+    console.log(
+      `[WS] tool_call: id=${toolId}, name=${toolName}, status=${data['status']}, hasArgs=${hasArgs}`
+    )
+
+    // 列出所有 tool_call 消息的 tool_id
+    const allToolMsgs = chatStore.messages
+      .filter(m => m.type === 'tool_call')
+      .map(m => ({ tool_id: m.tool_id, tool: m.tool, status: m.status }))
+    console.log(`[WS] current tool messages:`, JSON.stringify(allToolMsgs))
 
     // 优先使用 tool_id 精确匹配，避免同名工具调用串位
     let existingToolMsg = chatStore.messages.find(
@@ -257,13 +269,18 @@ export function useWebSocket() {
 
     const statusVal = (data['status'] as 'preparing' | 'executing' | 'completed') || 'executing'
     if (existingToolMsg) {
-      existingToolMsg.arguments = JSON.stringify(data['arguments'], null, 2)
-      existingToolMsg.status = statusVal
-      // 确保 tool_id 被正确设置
-      if (!existingToolMsg.tool_id) {
-        existingToolMsg.tool_id = toolId
+      console.log(
+        `[WS] tool_call MATCHED: tool_id=${existingToolMsg.tool_id}, updating args=${hasArgs}, status=${statusVal}`
+      )
+      // 只在有新参数时更新，避免覆盖已有参数
+      if (data['arguments'] != null) {
+        existingToolMsg.arguments = JSON.stringify(data['arguments'], null, 2)
       }
+      existingToolMsg.status = statusVal
+      // 始终同步 tool_id（fallback 匹配时后端 ID 可能与前端不同）
+      existingToolMsg.tool_id = toolId
     } else {
+      console.log(`[WS] tool_call NO MATCH, creating new message`)
       chatStore.addMessage({
         role: 'assistant',
         content: '',
@@ -271,7 +288,7 @@ export function useWebSocket() {
         type: 'tool_call',
         tool_id: toolId,
         tool: toolName,
-        arguments: JSON.stringify(data['arguments'], null, 2),
+        arguments: data['arguments'] != null ? JSON.stringify(data['arguments'], null, 2) : '',
         status: statusVal
       })
     }
@@ -286,11 +303,16 @@ export function useWebSocket() {
       .reverse()
       .find(m => m.type === 'tool_call' && m.tool_id === resultToolId)
 
-    // 如果没有找到，再尝试用 tool 名称匹配，但必须是 executing 状态的消息
+    // 如果没有找到，再尝试用 tool 名称匹配（executing 或 preparing 状态）
     if (!pendingToolMsg) {
       pendingToolMsg = [...chatStore.messages]
         .reverse()
-        .find(m => m.type === 'tool_call' && m.tool === toolName && m.status === 'executing')
+        .find(
+          m =>
+            m.type === 'tool_call' &&
+            m.tool === toolName &&
+            (m.status === 'executing' || m.status === 'preparing')
+        )
     }
 
     if (pendingToolMsg) {

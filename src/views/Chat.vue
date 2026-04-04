@@ -264,6 +264,11 @@
           </div>
           <!-- 单行输入框 + 发送按钮 -->
           <div class="input-row">
+            <a-popconfirm content="确定要清空并新建对话吗？" @ok="newChat">
+              <a-button class="new-chat-btn" :disabled="!connected">
+                <template #icon><icon-plus /></template>
+              </a-button>
+            </a-popconfirm>
             <a-input
               v-model="inputMessage"
               placeholder="输入消息，按 Enter 发送..."
@@ -303,7 +308,8 @@ import {
   IconCheckCircle,
   IconRight,
   IconRefresh,
-  IconCheck
+  IconCheck,
+  IconPlus
 } from '@arco-design/web-vue/es/icon'
 import MarkdownRender from 'markstream-vue'
 import 'markstream-vue/index.css'
@@ -625,12 +631,13 @@ const handleWsMessage = (data: any) => {
         arguments: ''
       }
 
-      // 添加工具调用消息
+      // 添加工具调用消息（带 tool_id 以便精确匹配）
       messages.value.push({
         role: 'assistant',
         content: '',
         time: formatTime(new Date()),
         type: 'tool_call',
+        tool_id: data.id,
         tool: data.name,
         arguments: '',
         status: 'preparing'
@@ -644,24 +651,38 @@ const handleWsMessage = (data: any) => {
 
     case WS_MESSAGE_TYPE.TOOL_CALL:
       // 更新工具调用消息（执行中状态）
-      // 使用 tool_id 匹配，如果没有则使用 tool 名称
+      // 优先使用 tool_id 精确匹配，避免同名工具多次调用时匹配错误
       {
-        const toolId = data.tool_id || data.tool
-        const existingToolMsg = messages.value.find(
-          (m: ChatMessage) =>
-            m.type === 'tool_call' &&
-            (m.tool_id === toolId || (m.tool === data.tool && m.status !== 'completed'))
-        )
+        const toolId = data.tool_id
+        let existingToolMsg: ChatMessage | undefined
+        if (toolId) {
+          // 精确匹配 tool_id
+          existingToolMsg = messages.value.find(
+            (m: ChatMessage) => m.type === 'tool_call' && m.tool_id === toolId
+          )
+        }
+        if (!existingToolMsg) {
+          // 降级：反向查找最后一个同名且未完成的工具消息
+          existingToolMsg = [...messages.value]
+            .reverse()
+            .find(
+              (m: ChatMessage) =>
+                m.type === 'tool_call' && m.tool === data.tool && m.status !== 'completed'
+            )
+        }
         if (existingToolMsg) {
           existingToolMsg.arguments = JSON.stringify(data.arguments, null, 2)
           existingToolMsg.status = data.status || 'executing'
+          if (toolId && !existingToolMsg.tool_id) {
+            existingToolMsg.tool_id = toolId
+          }
         } else {
           messages.value.push({
             role: 'assistant',
             content: '',
             time: formatTime(new Date()),
             type: 'tool_call',
-            tool_id: toolId,
+            tool_id: toolId || data.tool,
             tool: data.tool,
             arguments: JSON.stringify(data.arguments, null, 2),
             status: data.status || 'executing'
@@ -674,14 +695,23 @@ const handleWsMessage = (data: any) => {
     case WS_MESSAGE_TYPE.TOOL_RESULT:
       // 更新工具调用结果
       {
-        const resultToolId = data.tool_id || data.tool
-        const pendingToolMsg = [...messages.value]
-          .reverse()
-          .find(
-            (m: ChatMessage) =>
-              m.type === 'tool_call' &&
-              (m.tool_id === resultToolId || (m.tool === data.tool && m.status !== 'completed'))
+        const resultToolId = data.tool_id
+        let pendingToolMsg: ChatMessage | undefined
+        if (resultToolId) {
+          // 精确匹配 tool_id
+          pendingToolMsg = messages.value.find(
+            (m: ChatMessage) => m.type === 'tool_call' && m.tool_id === resultToolId
           )
+        }
+        if (!pendingToolMsg) {
+          // 降级：反向查找最后一个同名且未完成的工具消息
+          pendingToolMsg = [...messages.value]
+            .reverse()
+            .find(
+              (m: ChatMessage) =>
+                m.type === 'tool_call' && m.tool === data.tool && m.status !== 'completed'
+            )
+        }
         if (pendingToolMsg) {
           pendingToolMsg.result =
             typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2)
@@ -816,6 +846,12 @@ const clearChat = () => {
   if (websocket && websocket.readyState === WebSocket.OPEN) {
     websocket.send(JSON.stringify({ type: 'clear' }))
   }
+}
+
+const newChat = () => {
+  clearChat()
+  showSuggestions.value = true
+  refreshQuestions()
 }
 
 const toggleThinking = (msgIndex: number, blockIndex: number) => {
@@ -1028,6 +1064,7 @@ onUnmounted(() => {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  padding: 0;
 }
 
 .message-list {
@@ -1178,14 +1215,13 @@ onUnmounted(() => {
 }
 
 .input-area {
-  padding: 16px;
+  padding: 4px 16px 12px;
   background: #fff;
-  margin-top: 20px;
 }
 
 .input-row {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: stretch;
 }
 
@@ -1226,6 +1262,29 @@ onUnmounted(() => {
 }
 
 .input-row :deep(.arco-btn-primary .arco-icon) {
+  font-size: 18px;
+}
+
+.new-chat-btn {
+  flex-shrink: 0;
+  height: 44px;
+  width: 44px;
+  border-radius: 22px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f2f3f5;
+  border: none;
+  color: #4e5969;
+}
+
+.new-chat-btn:hover {
+  background: #e5e6eb;
+  color: #1d2129;
+}
+
+.new-chat-btn :deep(.arco-icon) {
   font-size: 18px;
 }
 
