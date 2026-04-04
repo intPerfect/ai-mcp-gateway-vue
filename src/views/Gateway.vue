@@ -59,14 +59,15 @@
                 <a-button type="text" size="small" @click="showGatewayModal(record)">
                   <template #icon><icon-edit /></template>
                 </a-button>
-                <a-button
-                  type="text"
-                  size="small"
-                  status="danger"
-                  @click="deleteGateway(record.id)"
+                <a-popconfirm
+                  content="确定要删除该网关吗？"
+                  position="left"
+                  @ok="deleteGateway(record.id)"
                 >
-                  <template #icon><icon-delete /></template>
-                </a-button>
+                  <a-button type="text" size="small" status="danger">
+                    <template #icon><icon-delete /></template>
+                  </a-button>
+                </a-popconfirm>
               </a-space>
             </template>
           </a-table>
@@ -127,14 +128,13 @@
               </a-tag>
             </template>
             <template #actions="{ record }">
-              <a-button
-                type="text"
-                size="small"
-                status="danger"
-                @click="deleteGatewayKey(record.id)"
+              <a-popconfirm
+                content="确定要删除该Key吗？"
+                position="left"
+                @ok="deleteGatewayKey(record.id)"
               >
-                删除
-              </a-button>
+                <a-button type="text" size="small" status="danger">删除</a-button>
+              </a-popconfirm>
             </template>
           </a-table>
         </a-card>
@@ -166,14 +166,13 @@
             </template>
             <template #actions="{ record }">
               <a-button type="text" size="small" @click="showLlmConfigModal(record)">编辑</a-button>
-              <a-button
-                type="text"
-                size="small"
-                status="danger"
-                @click="deleteLlmConfig(record.id)"
+              <a-popconfirm
+                content="确定要删除该LLM配置吗？"
+                position="left"
+                @ok="deleteLlmConfig(record.id)"
               >
-                删除
-              </a-button>
+                <a-button type="text" size="small" status="danger">删除</a-button>
+              </a-popconfirm>
             </template>
           </a-table>
         </a-card>
@@ -311,11 +310,11 @@
           <a-input :model-value="bindGateway?.gateway_name" disabled />
         </a-form-item>
         <a-form-item label="选择微服务">
-          <a-checkbox-group v-model="bindMicroserviceIds" direction="vertical">
-            <a-checkbox v-for="ms in allMicroservices" :key="ms.id" :value="ms.id">
-              {{ ms.name }} ({{ ms.business_line || '未分类' }})
-            </a-checkbox>
-          </a-checkbox-group>
+          <MicroserviceSelect
+            v-model="bindMicroserviceIds"
+            :microservices="allMicroservices"
+            placeholder="搜索并选择微服务"
+          />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -325,6 +324,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
+import MicroserviceSelect from '@/components/MicroserviceSelect.vue'
 import {
   IconDesktop,
   IconSafe,
@@ -527,7 +527,7 @@ const saveGateway = async () => {
     gatewayModalVisible.value = false
     loadGateways()
   } catch (e: any) {
-    Message.error(e.message || '保存失败')
+    // 错误已由拦截器处理
   }
   saving.value = false
 }
@@ -538,7 +538,7 @@ const deleteGateway = async (id: number) => {
     Message.success('删除成功')
     loadGateways()
   } catch (e: any) {
-    Message.error(e.message || '删除失败')
+    // 错误已由拦截器处理
   }
 }
 
@@ -560,7 +560,7 @@ const saveGatewayKey = async () => {
     gatewayKeyModalVisible.value = false
     loadGatewayKeys()
   } catch (e: any) {
-    Message.error(e.message || '创建失败')
+    // 错误已由拦截器处理
   }
   saving.value = false
 }
@@ -571,7 +571,7 @@ const deleteGatewayKey = async (id: number) => {
     Message.success('删除成功')
     loadGatewayKeys()
   } catch (e: any) {
-    Message.error(e.message || '删除失败')
+    // 错误已由拦截器处理
   }
 }
 
@@ -611,7 +611,7 @@ const saveLlmConfig = async () => {
     llmConfigModalVisible.value = false
     loadLlmConfigs()
   } catch (e: any) {
-    Message.error(e.message || '保存失败')
+    // 错误已由拦截器处理
   }
   saving.value = false
 }
@@ -622,7 +622,7 @@ const deleteLlmConfig = async (id: number) => {
     Message.success('删除成功')
     loadLlmConfigs()
   } catch (e: any) {
-    Message.error(e.message || '删除失败')
+    // 错误已由拦截器处理
   }
 }
 
@@ -657,7 +657,7 @@ const saveBindMicroservice = async () => {
     bindMicroserviceModalVisible.value = false
     loadGateways()
   } catch (e: any) {
-    Message.error(e.message || '绑定失败')
+    // 错误已由拦截器处理
   }
   saving.value = false
 }
@@ -670,6 +670,7 @@ onMounted(() => {
 <style scoped>
 .gateway-page {
   height: calc(100vh - 88px);
+  overflow: hidden;
 }
 
 .main-tabs {
@@ -678,10 +679,29 @@ onMounted(() => {
   padding: 16px;
   height: 100%;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+}
+
+.main-tabs :deep(.arco-tabs-content) {
+  flex: 1;
+  overflow: hidden;
+}
+
+.main-tabs :deep(.arco-tabs-pane) {
+  height: 100%;
+  overflow: hidden;
 }
 
 .main-tabs :deep(.arco-card) {
   border: none;
+  height: 100%;
+  overflow: hidden;
+}
+
+.main-tabs :deep(.arco-card-body) {
+  height: 100%;
+  overflow: auto;
 }
 
 .main-tabs :deep(.arco-card-header) {

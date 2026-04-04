@@ -16,7 +16,6 @@
         :bordered="{ wrapper: true, cell: true }"
       >
         <template #columns>
-          <a-table-column title="ID" data-index="id" :width="80" />
           <a-table-column title="业务线编码" data-index="line_code" />
           <a-table-column title="业务线名称" data-index="line_name" />
           <a-table-column title="描述" data-index="description">

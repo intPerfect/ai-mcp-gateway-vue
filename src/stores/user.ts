@@ -5,7 +5,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { login as loginApi, logout as logoutApi, getUserInfo, checkAuth } from '@/api/auth'
 import type { UserInfo, LoginRequest } from '@/types/user'
-import { getStorage, setStorage, removeStorage } from '@/utils'
+import { getStorage, setStorage, removeStorage, clearStorage } from '@/utils'
 
 const TOKEN_KEY = 'token'
 const USER_KEY = 'user_info'
@@ -56,6 +56,11 @@ export const useUserStore = defineStore('user', () => {
   async function login(credentials: LoginRequest): Promise<void> {
     loading.value = true
     try {
+      // 登录前清除所有旧缓存，避免残留脏数据
+      clearStorage()
+      token.value = null
+      userInfo.value = null
+
       console.log('[UserStore] Calling login API...')
       const response = await loginApi(credentials)
       console.log('[UserStore] Login API response:', response)

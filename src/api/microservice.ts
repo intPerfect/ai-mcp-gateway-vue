@@ -9,6 +9,8 @@ import type {
   MicroserviceTool,
   ToolBindRequest,
   ToolEnabledRequest,
+  ToolDetail,
+  ToolUpdateRequest,
   HealthCheckResult
 } from '@/types'
 
@@ -76,11 +78,15 @@ export function updateToolEnabled(toolId: number, data: ToolEnabledRequest): Pro
 }
 
 /**
- * 更新工具信息
+ * 获取工具详情（含HTTP配置和参数映射）
  */
-export function updateTool(
-  toolId: number,
-  data: { tool_name?: string; tool_description?: string }
-): Promise<void> {
+export function getToolDetail(toolId: number): Promise<ToolDetail> {
+  return get<ToolDetail>(`/tools/${toolId}/detail`)
+}
+
+/**
+ * 更新工具信息（含HTTP配置和参数映射）
+ */
+export function updateTool(toolId: number, data: ToolUpdateRequest): Promise<void> {
   return put<void>(`/tools/${toolId}`, data)
 }

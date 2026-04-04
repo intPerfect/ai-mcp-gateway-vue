@@ -15,7 +15,6 @@
         :bordered="{ wrapper: true, cell: true }"
       >
         <template #columns>
-          <a-table-column title="ID" data-index="id" :width="80" />
           <a-table-column title="用户名" data-index="username" />
           <a-table-column title="姓名" data-index="real_name">
             <template #cell="{ record }">{{ record.real_name || '-' }}</template>

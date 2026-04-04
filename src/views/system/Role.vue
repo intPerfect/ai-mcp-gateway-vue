@@ -15,7 +15,6 @@
         :bordered="{ wrapper: true, cell: true }"
       >
         <template #columns>
-          <a-table-column title="ID" data-index="id" :width="80" />
           <a-table-column title="角色编码" data-index="role_code" />
           <a-table-column title="角色名称" data-index="role_name" />
           <a-table-column title="描述" data-index="description">
@@ -214,6 +213,15 @@
               <a-checkbox v-else v-model="record.can_chat" />
             </template>
           </a-table-column>
+          <a-table-column title="管理员" :width="80" align="center">
+            <template #cell="{ record }">
+              <a-checkbox
+                v-if="record.isGroup && record.business_line_id > 0"
+                :model-value="blAdminIds.includes(record.business_line_id)"
+                @change="(val: any) => toggleBlAdmin(record.business_line_id, val)"
+              />
+            </template>
+          </a-table-column>
         </template>
       </a-table>
     </a-modal>
@@ -243,7 +251,8 @@ const showPermissionDialog = ref(false)
 const permissionRole = ref<RoleInfo | null>(null)
 const gatewayPermissions = ref<GatewayPermission[]>([])
 const savingGatewayPermissions = ref(false)
-const originalPermissions = ref<GatewayPermission[]>([])
+const blAdminIds = ref<number[]>([])
+const originalBlAdminIds = ref<number[]>([])
 
 // 业务线分组数据（仅用于展示）
 const gatewayTableData = computed(() => {
@@ -280,6 +289,16 @@ function onGroupPermCheckChange(group: any, perm: string, checked: boolean) {
   }
 }
 
+function toggleBlAdmin(blId: number, checked: boolean) {
+  if (checked) {
+    if (!blAdminIds.value.includes(blId)) {
+      blAdminIds.value.push(blId)
+    }
+  } else {
+    blAdminIds.value = blAdminIds.value.filter(id => id !== blId)
+  }
+}
+
 async function loadGatewayPermissions() {
   if (!permissionRole.value) return
 
@@ -303,7 +322,11 @@ async function loadGatewayPermissions() {
       key: `gw_${perm.gateway_id}`,
       name: `${perm.gateway_name} (${perm.gateway_id})`
     })) as GatewayPermission[]
-    originalPermissions.value = JSON.parse(JSON.stringify(gatewayPermissions.value))
+
+    // 加载业务线管理员状态
+    const adminIds = await get<number[]>(`/roles/${permissionRole.value.id}/bl-admin`)
+    blAdminIds.value = adminIds || []
+    originalBlAdminIds.value = [...blAdminIds.value]
   } catch (e) {
     console.error('Failed to load gateway permissions:', e)
   }
@@ -388,54 +411,22 @@ async function openPermissionDialog(role: RoleInfo) {
 async function saveGatewayPermissions() {
   if (!permissionRole.value) return
 
-  // 构建变更摘要
-  const changes: string[] = []
-  for (const p of gatewayPermissions.value) {
-    const orig = originalPermissions.value.find(o => o.gateway_id === p.gateway_id)
-    if (!orig) continue
+  savingGatewayPermissions.value = true
+  try {
+    // 保存网关权限
+    await put(`/roles/${permissionRole.value.id}/gateway-permissions`, gatewayPermissions.value)
 
-    const perms = ['can_create', 'can_read', 'can_update', 'can_delete', 'can_chat']
-    const permNames: Record<string, string> = {
-      can_create: '创建',
-      can_read: '查看',
-      can_update: '编辑',
-      can_delete: '删除',
-      can_chat: '对话'
-    }
+    // 保存业务线管理员权限
+    await put(`/roles/${permissionRole.value.id}/bl-admin`, blAdminIds.value)
 
-    for (const perm of perms) {
-      if ((orig as any)[perm] !== (p as any)[perm]) {
-        changes.push(
-          `${p.gateway_name}: ${permNames[perm]} ${(orig as any)[perm] ? '关闭' : '开启'}`
-        )
-      }
-    }
-  }
-
-  if (changes.length === 0) {
-    Message.info('没有变更，无需保存')
+    Message.success('权限保存成功')
     showPermissionDialog.value = false
-    return
+    loadRoles()
+  } catch (e) {
+    console.error('Failed to save permissions:', e)
+  } finally {
+    savingGatewayPermissions.value = false
   }
-
-  Modal.confirm({
-    title: '确认保存',
-    content: `即将修改以下权限：\n${changes.slice(0, 5).join('\n')}${changes.length > 5 ? '\n...' : ''}`,
-    onOk: async () => {
-      if (!permissionRole.value) return
-      savingGatewayPermissions.value = true
-      try {
-        await put(`/roles/${permissionRole.value.id}/gateway-permissions`, gatewayPermissions.value)
-        Message.success('网关权限保存成功')
-        showPermissionDialog.value = false
-        loadRoles()
-      } catch (e) {
-        console.error('Failed to save gateway permissions:', e)
-      } finally {
-        savingGatewayPermissions.value = false
-      }
-    }
-  })
 }
 
 onMounted(loadRoles)

@@ -73,23 +73,140 @@
     <a-modal
       v-model:visible="editModalVisible"
       title="编辑工具"
-      :width="480"
+      :width="720"
       :ok-loading="editLoading"
       @ok="handleEditSubmit"
       @cancel="closeEditModal"
     >
-      <a-form :model="editForm" layout="vertical">
-        <a-form-item label="工具名称" required>
-          <a-input v-model="editForm.tool_name" placeholder="请输入工具名称" />
-        </a-form-item>
-        <a-form-item label="工具描述">
-          <a-textarea
-            v-model="editForm.tool_description"
-            placeholder="请输入工具描述"
-            :auto-size="{ minRows: 3, maxRows: 6 }"
-          />
-        </a-form-item>
-      </a-form>
+      <a-spin :loading="detailLoading" style="width: 100%">
+        <a-form :model="editForm" layout="vertical">
+          <!-- 基本信息 -->
+          <a-row :gutter="16">
+            <a-col :span="12">
+              <a-form-item label="工具名称" required>
+                <a-input v-model="editForm.tool_name" placeholder="请输入工具名称" />
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item label="工具描述">
+                <a-input v-model="editForm.tool_description" placeholder="请输入工具描述" />
+              </a-form-item>
+            </a-col>
+          </a-row>
+
+          <!-- HTTP 配置 -->
+          <a-divider orientation="left" style="margin: 8px 0 12px">HTTP 配置</a-divider>
+          <a-row :gutter="16">
+            <a-col :span="4">
+              <a-form-item label="方法">
+                <a-select v-model="editForm.http_method">
+                  <a-option value="GET">GET</a-option>
+                  <a-option value="POST">POST</a-option>
+                  <a-option value="PUT">PUT</a-option>
+                  <a-option value="DELETE">DELETE</a-option>
+                  <a-option value="PATCH">PATCH</a-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :span="20">
+              <a-form-item label="请求 URL">
+                <a-input v-model="editForm.http_url" placeholder="http://example.com/api/{param}" />
+              </a-form-item>
+            </a-col>
+          </a-row>
+          <a-row :gutter="16">
+            <a-col :span="8">
+              <a-form-item label="超时时间(ms)">
+                <a-input-number
+                  v-model="editForm.timeout"
+                  :min="1000"
+                  :max="300000"
+                  :step="1000"
+                  style="width: 100%"
+                />
+              </a-form-item>
+            </a-col>
+            <a-col :span="8">
+              <a-form-item label="重试次数">
+                <a-input-number
+                  v-model="editForm.retry_times"
+                  :min="0"
+                  :max="10"
+                  style="width: 100%"
+                />
+              </a-form-item>
+            </a-col>
+          </a-row>
+          <a-form-item label="请求头 (JSON)">
+            <a-textarea
+              v-model="editForm.http_headers"
+              placeholder='{"Content-Type": "application/json"}'
+              :auto-size="{ minRows: 2, maxRows: 4 }"
+            />
+          </a-form-item>
+
+          <!-- 参数映射 -->
+          <a-divider orientation="left" style="margin: 8px 0 12px">
+            参数映射
+            <a-button type="text" size="mini" style="margin-left: 8px" @click="addParameter">
+              <template #icon><icon-plus /></template>
+              添加
+            </a-button>
+          </a-divider>
+          <div v-if="editForm.parameters.length === 0" class="empty-params">
+            <span style="color: #86909c; font-size: 13px">暂无参数，点击上方“添加”按钮新增</span>
+          </div>
+          <div v-for="(param, idx) in editForm.parameters" :key="idx" class="param-row">
+            <a-row :gutter="8" align="start">
+              <a-col :span="4">
+                <a-select v-model="param.param_location" placeholder="位置" size="small">
+                  <a-option value="query">query</a-option>
+                  <a-option value="body">body</a-option>
+                  <a-option value="path">path</a-option>
+                  <a-option value="header">header</a-option>
+                  <a-option value="form">form</a-option>
+                  <a-option value="file">file</a-option>
+                </a-select>
+              </a-col>
+              <a-col :span="4">
+                <a-input v-model="param.field_name" placeholder="字段名" size="small" />
+              </a-col>
+              <a-col :span="3">
+                <a-select v-model="param.field_type" placeholder="类型" size="small">
+                  <a-option value="string">string</a-option>
+                  <a-option value="integer">integer</a-option>
+                  <a-option value="number">number</a-option>
+                  <a-option value="boolean">boolean</a-option>
+                  <a-option value="array">array</a-option>
+                  <a-option value="object">object</a-option>
+                </a-select>
+              </a-col>
+              <a-col :span="5">
+                <a-input v-model="param.field_desc" placeholder="描述" size="small" />
+              </a-col>
+              <a-col :span="3">
+                <a-input v-model="param.default_value" placeholder="默认值" size="small" />
+              </a-col>
+              <a-col :span="2">
+                <a-checkbox
+                  :model-value="param.is_required === 1"
+                  @change="
+                    (v: boolean | (string | boolean | number)[]) =>
+                      (param.is_required = v === true ? 1 : 0)
+                  "
+                >
+                  必填
+                </a-checkbox>
+              </a-col>
+              <a-col :span="2">
+                <a-button type="text" status="danger" size="mini" @click="removeParameter(idx)">
+                  <template #icon><icon-delete /></template>
+                </a-button>
+              </a-col>
+            </a-row>
+          </div>
+        </a-form>
+      </a-spin>
     </a-modal>
   </div>
 </template>
@@ -97,9 +214,9 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { Message } from '@arco-design/web-vue'
-import { IconDown, IconEdit } from '@arco-design/web-vue/es/icon'
-import type { MicroserviceTool, Microservice } from '@/types'
-import { updateToolEnabled, updateTool } from '@/api/microservice'
+import { IconDown, IconEdit, IconPlus, IconDelete } from '@arco-design/web-vue/es/icon'
+import type { MicroserviceTool, Microservice, ToolParameterMapping } from '@/types'
+import { updateToolEnabled, updateTool, getToolDetail } from '@/api/microservice'
 
 interface Props {
   tools: MicroserviceTool[]
@@ -124,10 +241,17 @@ const collapsedMS = ref<Set<number | null>>(new Set())
 
 const editModalVisible = ref(false)
 const editLoading = ref(false)
+const detailLoading = ref(false)
 const currentEditTool = ref<MicroserviceTool | null>(null)
 const editForm = reactive({
   tool_name: '',
-  tool_description: ''
+  tool_description: '',
+  http_url: '',
+  http_method: 'POST',
+  http_headers: '',
+  timeout: 30000,
+  retry_times: 0,
+  parameters: [] as ToolParameterMapping[]
 })
 
 const toggleBusinessLine = (businessLine: string) => {
@@ -146,11 +270,35 @@ const toggleMicroservice = (microserviceId: number | null) => {
   }
 }
 
-const openEditModal = (tool: MicroserviceTool) => {
+const openEditModal = async (tool: MicroserviceTool) => {
   currentEditTool.value = tool
   editForm.tool_name = tool.tool_name
   editForm.tool_description = tool.tool_description || ''
+  editForm.http_url = ''
+  editForm.http_method = 'POST'
+  editForm.http_headers = ''
+  editForm.timeout = 30000
+  editForm.retry_times = 0
+  editForm.parameters = []
   editModalVisible.value = true
+
+  // 加载工具详情
+  detailLoading.value = true
+  try {
+    const detail = await getToolDetail(tool.tool_id)
+    if (detail.http_config) {
+      editForm.http_url = detail.http_config.http_url || ''
+      editForm.http_method = detail.http_config.http_method || 'POST'
+      editForm.http_headers = detail.http_config.http_headers || ''
+      editForm.timeout = detail.http_config.timeout || 30000
+      editForm.retry_times = detail.http_config.retry_times || 0
+    }
+    editForm.parameters = (detail.parameters || []).map(p => ({ ...p }))
+  } catch (error: any) {
+    Message.error('加载工具详情失败: ' + (error.message || ''))
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 const closeEditModal = () => {
@@ -158,6 +306,12 @@ const closeEditModal = () => {
   currentEditTool.value = null
   editForm.tool_name = ''
   editForm.tool_description = ''
+  editForm.http_url = ''
+  editForm.http_method = 'POST'
+  editForm.http_headers = ''
+  editForm.timeout = 30000
+  editForm.retry_times = 0
+  editForm.parameters = []
 }
 
 const handleEditSubmit = async () => {
@@ -170,7 +324,18 @@ const handleEditSubmit = async () => {
   try {
     await updateTool(currentEditTool.value!.tool_id, {
       tool_name: editForm.tool_name.trim(),
-      tool_description: editForm.tool_description.trim() || undefined
+      tool_description: editForm.tool_description.trim() || undefined,
+      http_config: {
+        http_url: editForm.http_url,
+        http_method: editForm.http_method,
+        http_headers: editForm.http_headers || undefined,
+        timeout: editForm.timeout,
+        retry_times: editForm.retry_times
+      },
+      parameters: editForm.parameters.map((p, idx) => ({
+        ...p,
+        sort_order: idx
+      }))
     })
     Message.success('更新成功')
     closeEditModal()
@@ -180,6 +345,24 @@ const handleEditSubmit = async () => {
   } finally {
     editLoading.value = false
   }
+}
+
+const addParameter = () => {
+  editForm.parameters.push({
+    param_location: 'query',
+    field_name: '',
+    field_type: 'string',
+    field_desc: '',
+    is_required: 0,
+    default_value: null,
+    enum_values: null,
+    example_value: null,
+    sort_order: editForm.parameters.length
+  })
+}
+
+const removeParameter = (idx: number) => {
+  editForm.parameters.splice(idx, 1)
 }
 
 interface MicroserviceGroup {
@@ -443,5 +626,25 @@ const handleEnabledChange = async (tool: MicroserviceTool) => {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.param-row {
+  margin-bottom: 8px;
+  padding: 8px;
+  background: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #e5e6eb;
+}
+
+.param-row:hover {
+  border-color: rgb(var(--primary-6));
+}
+
+.empty-params {
+  text-align: center;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 4px;
+  margin-bottom: 8px;
 }
 </style>

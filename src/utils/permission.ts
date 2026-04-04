@@ -6,26 +6,63 @@ import type { Directive, DirectiveBinding } from 'vue'
 import { useUserStore } from '@/stores/user'
 
 /**
+ * 检查权限辅助函数
+ */
+function checkPermission(el: HTMLElement, binding: DirectiveBinding) {
+  const userStore = useUserStore()
+  const { value } = binding
+
+  if (!value) return
+
+  let hasPerm = false
+
+  if (typeof value === 'string') {
+    hasPerm = userStore.hasPermission(value)
+  } else if (Array.isArray(value)) {
+    hasPerm = userStore.hasAnyPermission(value)
+  }
+
+  if (!hasPerm) {
+    el.style.display = 'none'
+  } else {
+    el.style.display = ''
+  }
+}
+
+/**
  * 单权限检查指令
  */
 export const permission: Directive = {
   mounted(el: HTMLElement, binding: DirectiveBinding) {
-    const userStore = useUserStore()
-    const { value } = binding
+    checkPermission(el, binding)
+  },
+  updated(el: HTMLElement, binding: DirectiveBinding) {
+    checkPermission(el, binding)
+  }
+}
 
-    if (!value) return
+/**
+ * 检查角色辅助函数
+ */
+function checkRole(el: HTMLElement, binding: DirectiveBinding) {
+  const userStore = useUserStore()
+  const { value } = binding
 
-    let hasPermission = false
+  if (!value) return
 
-    if (typeof value === 'string') {
-      hasPermission = userStore.hasPermission(value)
-    } else if (Array.isArray(value)) {
-      hasPermission = userStore.hasAnyPermission(value)
-    }
+  const roles = userStore.roles
+  let hasRole = false
 
-    if (!hasPermission) {
-      el.parentNode?.removeChild(el)
-    }
+  if (typeof value === 'string') {
+    hasRole = roles.includes(value)
+  } else if (Array.isArray(value)) {
+    hasRole = value.some(r => roles.includes(r))
+  }
+
+  if (!hasRole) {
+    el.style.display = 'none'
+  } else {
+    el.style.display = ''
   }
 }
 
@@ -35,23 +72,10 @@ export const permission: Directive = {
  */
 export const role: Directive = {
   mounted(el: HTMLElement, binding: DirectiveBinding) {
-    const userStore = useUserStore()
-    const { value } = binding
-
-    if (!value) return
-
-    const roles = userStore.roles
-    let hasRole = false
-
-    if (typeof value === 'string') {
-      hasRole = roles.includes(value)
-    } else if (Array.isArray(value)) {
-      hasRole = value.some(r => roles.includes(r))
-    }
-
-    if (!hasRole) {
-      el.parentNode?.removeChild(el)
-    }
+    checkRole(el, binding)
+  },
+  updated(el: HTMLElement, binding: DirectiveBinding) {
+    checkRole(el, binding)
   }
 }
 

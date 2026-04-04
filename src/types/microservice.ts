@@ -58,6 +58,43 @@ export interface ToolEnabledRequest {
   enabled: number
 }
 
+export interface ToolHttpConfig {
+  http_url: string
+  http_method: string
+  http_headers: string | null
+  timeout: number
+  retry_times: number
+}
+
+export interface ToolParameterMapping {
+  id?: number
+  param_location: string // path/query/body/form/header/file
+  field_name: string
+  field_type: string // string/integer/number/boolean/array/object
+  field_desc: string
+  is_required: number // 0/1
+  default_value: string | null
+  enum_values: string | null
+  example_value: string | null
+  sort_order: number
+}
+
+export interface ToolDetail {
+  tool_id: number
+  tool_name: string
+  tool_description: string
+  protocol_id: number
+  http_config: ToolHttpConfig | null
+  parameters: ToolParameterMapping[]
+}
+
+export interface ToolUpdateRequest {
+  tool_name?: string
+  tool_description?: string
+  http_config?: Partial<ToolHttpConfig>
+  parameters?: ToolParameterMapping[]
+}
+
 export interface HealthCheckResult {
   health_status: HealthStatus
   message: string

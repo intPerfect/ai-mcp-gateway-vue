@@ -115,7 +115,11 @@ service.interceptors.response.use(
 
     // 显示错误提示（除非静默模式）
     if (!options.silent && options.showError !== false) {
-      Message.error(options.errorMessage || data.info || '请求失败')
+      Message.error({
+        content: options.errorMessage || data.info || '请求失败',
+        duration: 5000,
+        id: 'request-error'
+      })
     }
 
     return Promise.reject(error)
@@ -214,7 +218,11 @@ service.interceptors.response.use(
 
     // 显示错误提示（除非静默模式）
     if (!config?.silent && config?.showError !== false) {
-      Message.error(config?.errorMessage || requestError.message)
+      Message.error({
+        content: config?.errorMessage || requestError.message,
+        duration: 5000,
+        id: 'request-error'
+      })
     }
 
     return Promise.reject(requestError)

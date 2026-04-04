@@ -45,7 +45,7 @@
           <template #icon><icon-message /></template>
           <span>对话测试</span>
         </a-menu-item>
-        <a-sub-menu key="system" :popup="false">
+        <a-sub-menu v-if="showSystemMenu" key="system" :popup="false">
           <template #icon><icon-settings /></template>
           <template #title>系统管理</template>
           <a-menu-item key="system/user">
@@ -161,7 +161,9 @@ const userStore = useUserStore()
 const testUsers = [
   { username: 'admin', password: 'admin123', label: '超级管理员', roles: ['SUPER_ADMIN'] },
   { username: 'oa_admin', password: '123456', label: 'OA管理员', roles: ['OA_ADMIN'] },
-  { username: 'product_admin', password: '123456', label: '商品管理员', roles: ['PRODUCT_ADMIN'] }
+  { username: 'product_admin', password: '123456', label: '商品管理员', roles: ['PRODUCT_ADMIN'] },
+  { username: 'oa_user', password: '123456', label: 'OA普通用户', roles: ['OA_USER'] },
+  { username: 'product_user', password: '123456', label: '商品普通用户', roles: ['PRODUCT_USER'] }
 ]
 
 const collapsed = ref(false)
@@ -171,6 +173,13 @@ const openKeys = ref(['system']) // 展开的子菜单
 // 当前用户显示名称
 const currentUserName = computed(() => userStore.realName || userStore.username || '未登录')
 const currentUserRoles = computed(() => userStore.roles.join(', ') || '无角色')
+
+// 是否显示系统管理菜单（超级管理员或有系统管理相关权限的用户）
+const showSystemMenu = computed(
+  () =>
+    userStore.isSuperAdmin ||
+    userStore.hasAnyPermission(['user:read', 'role:read', 'business_line:read'])
+)
 
 // 切换用户
 async function switchUser(user: (typeof testUsers)[0]) {
