@@ -30,7 +30,7 @@ export interface ChatMessage {
   thinkingContent?: string
 }
 
-// WebSocket 消息类型
+// WebSocket 消息类型枚举（供后端类型对齐参考）
 export type WsMessageType =
   | 'welcome'
   | 'user'
@@ -46,16 +46,6 @@ export type WsMessageType =
   | 'status'
   | 'error'
   | 'thinking'
-
-export interface WsMessage {
-  type: WsMessageType
-  [key: string]: unknown
-}
-
-// WebSocket 连接状态
-export type WsConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
-
-// 配置表单
 export interface ChatConfigForm {
   apiBaseUrl: string
   gatewayKey: string

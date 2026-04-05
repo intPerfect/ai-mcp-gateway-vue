@@ -5,10 +5,6 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ChatMessage, ContentBlock, ToolInfo } from '@/types'
 
-// 重新导出类型以保持兼容
-export type { ContentBlock }
-export type { ChatMessage as Message }
-
 export const useChatStore = defineStore('chat', () => {
   // 状态
   const messages = ref<ChatMessage[]>([])
@@ -32,18 +28,10 @@ export const useChatStore = defineStore('chat', () => {
     messages.value.push(message)
   }
 
-  function removeMessage(index: number) {
-    messages.value.splice(index, 1)
-  }
-
   function updateMessage(index: number, updates: Partial<ChatMessage>) {
     if (messages.value[index]) {
       Object.assign(messages.value[index], updates)
     }
-  }
-
-  function getLastMessage(): ChatMessage | undefined {
-    return messages.value[messages.value.length - 1]
   }
 
   function clearMessages() {
@@ -111,9 +99,7 @@ export const useChatStore = defineStore('chat', () => {
     toolCount,
     // 方法
     addMessage,
-    removeMessage,
     updateMessage,
-    getLastMessage,
     clearMessages,
     setTools,
     setConnected,

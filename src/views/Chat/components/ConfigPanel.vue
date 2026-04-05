@@ -7,7 +7,7 @@
 
       <a-form :model="config" layout="vertical">
         <a-form-item label="后端地址">
-          <a-input v-model="config.apiBaseUrl" placeholder="http://localhost:8777" />
+          <a-input v-model="config.apiBaseUrl" placeholder="http://localhost:8998" />
         </a-form-item>
 
         <a-form-item label="网关API Key">

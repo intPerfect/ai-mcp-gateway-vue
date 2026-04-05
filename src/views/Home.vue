@@ -48,18 +48,6 @@
       <div class="stat-item">
         <div
           class="stat-icon-wrapper"
-          style="background: linear-gradient(135deg, #722ed1, #9a4dff)"
-        >
-          <icon-safe class="stat-icon" />
-        </div>
-        <div class="stat-info">
-          <span class="stat-value">{{ stats.apikeys }}</span>
-          <span class="stat-label">API Key</span>
-        </div>
-      </div>
-      <div class="stat-item">
-        <div
-          class="stat-icon-wrapper"
           style="background: linear-gradient(135deg, #ff7d00, #ffaa00)"
         >
           <icon-branch class="stat-icon" />
@@ -75,48 +63,18 @@
     <div class="features-section">
       <h2 class="section-title">功能导航</h2>
       <div class="features-grid">
-        <div class="feature-card" @click="$router.push('/tools')">
+        <div class="feature-card" @click="$router.push('/gateway')">
           <div class="feature-header">
-            <div class="feature-icon" style="background: linear-gradient(135deg, #165dff, #722ed1)">
-              <icon-apps />
+            <div class="feature-icon" style="background: linear-gradient(135deg, #165dff, #4080ff)">
+              <icon-cloud />
             </div>
             <icon-right class="feature-arrow" />
           </div>
-          <h3>工具管理</h3>
-          <p>管理 MCP 工具，健康检查，OpenAPI 导入</p>
+          <h3>网关管理</h3>
+          <p>管理 MCP 网关，配置 API Key 和 LLM 绑定</p>
           <div class="feature-tags">
-            <span class="tag">健康检查</span>
-            <span class="tag">OpenAPI</span>
-          </div>
-        </div>
-
-        <div class="feature-card" @click="$router.push('/apikey')">
-          <div class="feature-header">
-            <div class="feature-icon" style="background: linear-gradient(135deg, #00b42a, #00d068)">
-              <icon-safe />
-            </div>
-            <icon-right class="feature-arrow" />
-          </div>
-          <h3>API Key 管理</h3>
-          <p>管理用户和网关 API Key，控制访问权限</p>
-          <div class="feature-tags">
-            <span class="tag">权限控制</span>
-            <span class="tag">安全认证</span>
-          </div>
-        </div>
-
-        <div class="feature-card" @click="$router.push('/chat')">
-          <div class="feature-header">
-            <div class="feature-icon" style="background: linear-gradient(135deg, #ff7d00, #ffc547)">
-              <icon-message />
-            </div>
-            <icon-right class="feature-arrow" />
-          </div>
-          <h3>对话测试</h3>
-          <p>WebSocket 实时对话，工具调用测试</p>
-          <div class="feature-tags">
-            <span class="tag">实时对话</span>
-            <span class="tag">工具调用</span>
+            <span class="tag">API Key</span>
+            <span class="tag">LLM 绑定</span>
           </div>
         </div>
 
@@ -134,6 +92,36 @@
             <span class="tag">状态监控</span>
           </div>
         </div>
+
+        <div class="feature-card" @click="$router.push('/tools')">
+          <div class="feature-header">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #00b42a, #00d068)">
+              <icon-apps />
+            </div>
+            <icon-right class="feature-arrow" />
+          </div>
+          <h3>工具管理</h3>
+          <p>管理 MCP 工具，健康检查，OpenAPI 导入</p>
+          <div class="feature-tags">
+            <span class="tag">健康检查</span>
+            <span class="tag">OpenAPI</span>
+          </div>
+        </div>
+
+        <div class="feature-card" @click="$router.push('/chat')">
+          <div class="feature-header">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #ff7d00, #ffc547)">
+              <icon-message />
+            </div>
+            <icon-right class="feature-arrow" />
+          </div>
+          <h3>对话测试</h3>
+          <p>WebSocket 实时对话，工具调用测试</p>
+          <div class="feature-tags">
+            <span class="tag">实时对话</span>
+            <span class="tag">工具调用</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -141,27 +129,33 @@
     <div class="guide-section">
       <h2 class="section-title">快速开始</h2>
       <div class="guide-steps">
-        <div class="guide-step">
+        <div class="guide-step" @click="$router.push('/gateway')">
           <div class="step-number">1</div>
           <div class="step-content">
-            <h4>配置 API Key</h4>
-            <p>创建用户 API Key 用于身份认证</p>
+            <h4>创建网关 &amp; API Key</h4>
+            <p>在网关管理中创建网关，绑定 LLM 模型并生成访问凭证</p>
           </div>
         </div>
-        <icon-right class="step-arrow" />
-        <div class="guide-step">
+        <div class="step-connector">
+          <span class="connector-line"></span>
+          <span class="connector-arrow"></span>
+        </div>
+        <div class="guide-step" @click="$router.push('/microservice')">
           <div class="step-number">2</div>
           <div class="step-content">
-            <h4>导入工具</h4>
-            <p>通过 OpenAPI 导入微服务工具</p>
+            <h4>注册微服务工具</h4>
+            <p>添加微服务并通过 OpenAPI 规范一键导入所有工具接口</p>
           </div>
         </div>
-        <icon-right class="step-arrow" />
-        <div class="guide-step">
+        <div class="step-connector">
+          <span class="connector-line"></span>
+          <span class="connector-arrow"></span>
+        </div>
+        <div class="guide-step" @click="$router.push('/chat')">
           <div class="step-number">3</div>
           <div class="step-content">
-            <h4>开始对话</h4>
-            <p>与 AI 进行对话，自动调用工具</p>
+            <h4>连接并开始对话</h4>
+            <p>填入 API Key 完成连接，通过自然语言与 AI 交互并自动调用工具</p>
           </div>
         </div>
       </div>
@@ -174,17 +168,16 @@ import { ref, onMounted } from 'vue'
 import {
   IconApps,
   IconMessage,
-  IconSafe,
   IconBranch,
   IconRight,
-  IconStorage
+  IconStorage,
+  IconCloud
 } from '@arco-design/web-vue/es/icon'
 import { getStats } from '@/api/stats'
 
 const stats = ref({
   tools: 0,
   sessions: 0,
-  apikeys: 0, // TODO: expose apikey count from backend stats endpoint
   requests: 0
 })
 
@@ -216,10 +209,10 @@ onMounted(() => {
 .hero-section {
   position: relative;
   background: linear-gradient(135deg, #165dff 0%, #722ed1 50%, #9a4dff 100%);
-  padding: 48px 32px;
+  padding: 40px 32px;
   border-radius: 12px;
   overflow: hidden;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   box-shadow: 0 4px 12px rgba(22, 93, 255, 0.2);
   flex-shrink: 0;
 }
@@ -299,9 +292,9 @@ onMounted(() => {
 /* Stats Section */
 .stats-section {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 @media (max-width: 768px) {
@@ -313,7 +306,7 @@ onMounted(() => {
 .stat-item {
   background: #fff;
   border-radius: 12px;
-  padding: 16px;
+  padding: 15px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -361,38 +354,26 @@ onMounted(() => {
 
 /* Features Section */
 .features-section {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .section-title {
   font-size: 15px;
   font-weight: 600;
   color: #1d2129;
-  margin: 0 0 16px 0;
+  margin: 0 0 14px 0;
 }
 
 .features-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-@media (max-width: 1200px) {
-  .features-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 576px) {
-  .features-grid {
-    grid-template-columns: 1fr;
-  }
+  gap: 14px;
 }
 
 .feature-card {
   background: #fff;
   border-radius: 12px;
-  padding: 20px;
+  padding: 18px;
   cursor: pointer;
   transition: all 0.25s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -407,7 +388,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .feature-icon {
@@ -442,7 +423,7 @@ onMounted(() => {
 .feature-card p {
   font-size: 13px;
   color: #86909c;
-  margin: 0 0 16px 0;
+  margin: 0 0 14px 0;
   line-height: 1.5;
 }
 
@@ -470,7 +451,7 @@ onMounted(() => {
 
 .guide-steps {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
 }
 
@@ -478,23 +459,37 @@ onMounted(() => {
   .guide-steps {
     flex-direction: column;
     gap: 16px;
+    align-items: flex-start;
   }
 
-  .step-arrow {
+  .step-connector {
     display: none;
   }
 }
 
 .guide-step {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 14px;
   flex: 1;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: background 0.2s ease;
+}
+
+.guide-step:hover {
+  background: #f5f7ff;
+}
+
+.guide-step:hover .step-number {
+  box-shadow: 0 4px 12px rgba(22, 93, 255, 0.35);
+  transform: scale(1.08);
 }
 
 .step-number {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: linear-gradient(135deg, #165dff, #722ed1);
   color: #fff;
@@ -502,8 +497,10 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   flex-shrink: 0;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 2px 8px rgba(22, 93, 255, 0.2);
 }
 
 .step-content h4 {
@@ -514,15 +511,35 @@ onMounted(() => {
 }
 
 .step-content p {
-  font-size: 13px;
+  font-size: 12px;
   color: #86909c;
   margin: 0;
+  line-height: 1.5;
 }
 
-.step-arrow {
-  color: #165dff;
-  font-size: 20px;
+/* 连接箭头 */
+.step-connector {
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
-  align-self: center;
+  margin: 0 4px;
+}
+
+.connector-line {
+  display: block;
+  width: 40px;
+  height: 2px;
+  background: linear-gradient(90deg, #d0d8ff, #165dff);
+  border-radius: 1px;
+}
+
+.connector-arrow {
+  display: block;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid #165dff;
+  margin-left: -1px;
 }
 </style>
