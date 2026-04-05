@@ -81,6 +81,10 @@ export const useChatStore = defineStore('chat', () => {
     currentToolCall.value = toolCall
   }
 
+  function getLastMessage(): ChatMessage | null {
+    return messages.value.length > 0 ? messages.value[messages.value.length - 1] : null
+  }
+
   return {
     // 状态
     messages,
@@ -110,6 +114,7 @@ export const useChatStore = defineStore('chat', () => {
     toggleThought,
     setThoughtExpanded,
     resetThinkingState,
-    setCurrentToolCall
+    setCurrentToolCall,
+    getLastMessage
   }
 })

@@ -60,7 +60,7 @@
             type="primary"
             long
             :loading="connecting"
-            :disabled="config.selectedMicroservices.length === 0 || !config.llmConfigId"
+            :disabled="!verifiedGateway || config.selectedMicroservices.length === 0 || !config.llmConfigId"
             @click="emit('connect')"
           >
             <template #icon><icon-link /></template>
