@@ -192,7 +192,7 @@ service.interceptors.response.use(
         case 504:
           requestError = new RequestError(
             ErrorType.SERVER_ERROR,
-            '服务器错误，请稍后重试',
+            data?.info || '服务器错误，请稍后重试',
             data?.code,
             status,
             data

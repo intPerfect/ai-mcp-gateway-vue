@@ -179,21 +179,23 @@ import {
   IconRight,
   IconStorage
 } from '@arco-design/web-vue/es/icon'
-import { get } from '@/api/request'
+import { getStats } from '@/api/stats'
 
 const stats = ref({
   tools: 0,
-  sessions: 3,
-  apikeys: 2,
-  requests: 128
+  sessions: 0,
+  apikeys: 0, // TODO: expose apikey count from backend stats endpoint
+  requests: 0
 })
 
 const loadData = async () => {
   try {
-    const result = await get<{ total: number }>('/tools')
-    stats.value.tools = result.total || 0
+    const result = await getStats()
+    stats.value.tools = result.total_tools ?? 0
+    stats.value.sessions = result.total_sessions ?? 0
+    stats.value.requests = result.total_messages ?? 0
   } catch (error) {
-    console.error('Failed to load data:', error)
+    console.error('Failed to load stats:', error)
   }
 }
 

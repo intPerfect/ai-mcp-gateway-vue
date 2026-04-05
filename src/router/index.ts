@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import Layout from '../components/Layout.vue'
 import { useUserStore } from '@/stores/user'
-import { getStorage } from '@/utils'
 
 const routes = [
   {
@@ -43,7 +42,7 @@ const routes = [
       {
         path: 'chat',
         name: 'Chat',
-        component: () => import('../views/Chat.vue'),
+        component: () => import('../views/Chat/index.vue'),
         meta: { requiresAuth: true }
       },
       // 系统管理
@@ -87,54 +86,36 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
-
-  // 检查 localStorage 中的 token（防止 axios 已清除但 Pinia 未同步）
-  const localToken = getStorage<string>('token')
-
-  console.log(
-    '[Router] Navigation to:',
-    to.path,
-    'localToken:',
-    !!localToken,
-    'isLoggedIn:',
-    userStore.isLoggedIn
-  )
+  const hasToken = !!userStore.token
 
   // 不需要认证的页面
   if (to.meta['requiresAuth'] === false) {
-    // 登录页：只有 localStorage 中有 token 时才检查是否已登录
-    if (to.path === '/login' && localToken && userStore.isLoggedIn) {
-      console.log('[Router] Already logged in, redirect to home')
+    if (to.path === '/login' && hasToken && userStore.isLoggedIn) {
       next('/')
       return
     }
-    console.log('[Router] No auth required, proceed')
     next()
     return
   }
 
   // 需要认证的页面，但没有 token
-  if (!localToken) {
-    console.log('[Router] No token, redirect to login')
+  if (!hasToken) {
     next({ path: '/login', query: { redirect: to.fullPath } })
     return
   }
 
-  // 需要认证的页面，有 token 但 Pinia 状态未初始化
+  // Token 存在但 Pinia 状态未初始化
   if (!userStore.isLoggedIn) {
-    console.log('[Router] Token exists but Pinia not initialized, calling init...')
     const initialized = await userStore.init()
-    console.log('[Router] Init result:', initialized)
     if (!initialized) {
       next({ path: '/login', query: { redirect: to.fullPath } })
       return
     }
   }
 
-  // 检查权限
+  // 检查页面级权限
   const permission = to.meta['permission'] as string | undefined
   if (permission && !userStore.hasPermission(permission)) {
-    console.log('[Router] No permission:', permission)
     Message.warning({
       content: `您没有访问该页面的权限 (${permission})`,
       duration: 3000
@@ -143,7 +124,6 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
-  console.log('[Router] Auth check passed, proceed')
   next()
 })
 

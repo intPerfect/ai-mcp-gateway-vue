@@ -1,5 +1,7 @@
 /**
  * 存储工具函数
+ * 所有 key 自动添加 mcp_gateway_ 前缀，避免与其他应用冲突。
+ * 仅用于登录信息（token / user_info）和主题偏好（theme）的持久化。
  */
 
 const STORAGE_PREFIX = 'mcp_gateway_'
@@ -33,16 +35,4 @@ export function setStorage<T>(key: string, value: T): void {
  */
 export function removeStorage(key: string): void {
   localStorage.removeItem(STORAGE_PREFIX + key)
-}
-
-/**
- * 清空本地存储（仅清除带前缀的）
- */
-export function clearStorage(): void {
-  const keys = Object.keys(localStorage)
-  keys.forEach(key => {
-    if (key.startsWith(STORAGE_PREFIX)) {
-      localStorage.removeItem(key)
-    }
-  })
 }

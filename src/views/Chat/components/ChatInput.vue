@@ -1,25 +1,7 @@
 <template>
   <div class="chat-input">
-    <div class="input-row">
-      <a-input
-        v-model="inputMessage"
-        placeholder="输入消息，按 Enter 发送..."
-        :disabled="!connected"
-        allow-clear
-        @press-enter="handleSend"
-      />
-      <a-button
-        type="primary"
-        :disabled="!connected || !inputMessage.trim()"
-        :loading="sending"
-        @click="handleSend"
-      >
-        <template #icon><icon-send /></template>
-      </a-button>
-    </div>
-
-    <!-- 推荐问题 -->
-    <div v-if="connected" class="suggestions-block">
+    <!-- Suggested questions: only when connected and no messages yet -->
+    <div v-if="connected && !hasMessages && displayedQuestions.length" class="suggestions-block">
       <div class="suggestions-header">
         <span class="suggestions-title">猜你想问</span>
         <a-button type="text" size="small" class="refresh-btn" @click="handleRefresh">
@@ -39,40 +21,105 @@
         </div>
       </div>
     </div>
+
+    <div class="input-row">
+      <a-popconfirm content="确定要清空并新建对话吗？" @ok="emit('new-chat')">
+        <a-button class="action-btn" :disabled="!connected">
+          <template #icon><icon-plus /></template>
+        </a-button>
+      </a-popconfirm>
+
+      <a-input
+        v-model="inputMessage"
+        placeholder="输入消息，按 Enter 发送..."
+        :disabled="!connected || loading"
+        allow-clear
+        @press-enter="handleSend"
+      />
+
+      <!-- Stop button when generating, send button otherwise -->
+      <button v-if="loading" class="stop-btn" title="停止生成" @click="emit('stop')">
+        <span class="stop-icon"></span>
+      </button>
+      <a-button
+        v-else
+        type="primary"
+        class="send-btn"
+        :disabled="!connected || !inputMessage.trim()"
+        :loading="sending"
+        @click="handleSend"
+      >
+        <template #icon><icon-send /></template>
+      </a-button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { IconSend, IconRefresh, IconRight } from '@arco-design/web-vue/es/icon'
+import { IconSend, IconRefresh, IconRight, IconPlus } from '@arco-design/web-vue/es/icon'
 import { SUGGESTED_QUESTIONS } from '@/constants'
+import { useUserStore } from '@/stores'
 
-defineProps<{
+const props = defineProps<{
   connected: boolean
+  loading: boolean
   sending: boolean
+  hasMessages: boolean
 }>()
 
 const emit = defineEmits<{
   send: [message: string]
+  stop: []
+  'new-chat': []
 }>()
 
+const userStore = useUserStore()
 const inputMessage = ref('')
 const displayedQuestions = ref<{ text: string }[]>([])
 const isRefreshing = ref(false)
+const usedIndices = ref<Set<number>>(new Set())
+
+// Filter suggested questions by user role
+const getFilteredQuestions = () => {
+  const roles = userStore.userInfo?.roles || []
+  if (roles.includes('OA_ADMIN')) {
+    return SUGGESTED_QUESTIONS.filter(q => q.businessLine === 'oa' || q.businessLine === 'common')
+  }
+  return SUGGESTED_QUESTIONS.filter(
+    q => q.businessLine === 'product' || q.businessLine === 'common'
+  )
+}
+
+const allQuestions = getFilteredQuestions()
 
 const handleSend = () => {
   const message = inputMessage.value.trim()
-  if (message) {
+  if (message && props.connected && !props.loading) {
     emit('send', message)
     inputMessage.value = ''
   }
 }
 
 const handleRefresh = () => {
+  if (allQuestions.length === 0) {
+    displayedQuestions.value = []
+    return
+  }
   isRefreshing.value = true
   setTimeout(() => {
-    const shuffled = [...SUGGESTED_QUESTIONS].sort(() => Math.random() - 0.5)
-    displayedQuestions.value = shuffled.slice(0, 2).map(item => ({ text: item.text }))
+    const availableIndices: number[] = []
+    for (let i = 0; i < allQuestions.length; i++) {
+      if (!usedIndices.value.has(i)) availableIndices.push(i)
+    }
+    if (availableIndices.length < 2) {
+      usedIndices.value.clear()
+      for (let i = 0; i < allQuestions.length; i++) availableIndices.push(i)
+    }
+    const shuffled = availableIndices.sort(() => Math.random() - 0.5)
+    const selectedIndices = shuffled.slice(0, Math.min(2, shuffled.length))
+    selectedIndices.forEach(i => usedIndices.value.add(i))
+    displayedQuestions.value = selectedIndices.map(i => allQuestions[i])
     isRefreshing.value = false
   }, 300)
 }
@@ -84,38 +131,119 @@ const handleSelect = (text: string) => {
 onMounted(() => {
   handleRefresh()
 })
-
-defineExpose({
-  focus: () => {
-    // 可以添加输入框聚焦逻辑
-  }
-})
 </script>
 
 <style scoped>
 .chat-input {
-  border-top: 1px solid #e5e6eb;
-  padding: 12px 16px;
-  background: white;
+  padding: 4px 16px 12px;
+  background: #fff;
 }
 
 .input-row {
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: stretch;
 }
 
 .input-row :deep(.arco-input-wrapper) {
   flex: 1;
+  height: 44px;
+  border-radius: 22px;
+  padding: 0 16px;
+  background: #f7f8fa;
+  border: 1px solid transparent;
+  transition: all 0.2s;
 }
 
-.input-row :deep(.arco-btn-primary) {
+.input-row :deep(.arco-input-wrapper:hover) {
+  background: #fff;
+  border-color: #e5e6eb;
+}
+
+.input-row :deep(.arco-input-wrapper:focus-within) {
+  background: #fff;
+  border-color: #165dff;
+  box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
+}
+
+.input-row :deep(.arco-input) {
+  font-size: 14px;
+}
+
+.action-btn {
+  flex-shrink: 0;
+  height: 44px;
+  width: 44px;
+  border-radius: 22px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f2f3f5;
+  border: none;
+  color: #4e5969;
+}
+
+.action-btn:hover {
+  background: #e5e6eb;
+  color: #1d2129;
+}
+
+.action-btn :deep(.arco-icon) {
+  font-size: 18px;
+}
+
+.send-btn {
+  flex-shrink: 0;
+  height: 44px;
+  width: 44px;
+  border-radius: 22px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.send-btn :deep(.arco-icon) {
+  font-size: 18px;
+}
+
+.stop-btn {
+  flex-shrink: 0;
+  height: 44px;
+  width: 44px;
+  border-radius: 22px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e8f3ff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.stop-btn:hover {
+  background: #d6e4ff;
+  transform: scale(1.05);
+}
+
+.stop-btn:active {
+  transform: scale(0.95);
+}
+
+.stop-icon {
+  width: 14px;
+  height: 14px;
+  background: #165dff;
+  border-radius: 2px;
   flex-shrink: 0;
 }
 
-/* 推荐问题样式 */
+/* ===== Suggested questions ===== */
 .suggestions-block {
-  padding-top: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
 }
 
 .suggestions-header {
@@ -157,12 +285,12 @@ defineExpose({
 
 .suggestions-list {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .suggestion-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   padding: 8px 12px;
   background: #f7f8fa;
@@ -171,8 +299,7 @@ defineExpose({
   cursor: pointer;
   transition: all 0.2s;
   user-select: none;
-  flex: 1;
-  min-width: 0;
+  max-width: 100%;
 }
 
 .suggestion-item:hover {
@@ -189,8 +316,6 @@ defineExpose({
   color: #1d2129;
   line-height: 1.4;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .suggestion-arrow {

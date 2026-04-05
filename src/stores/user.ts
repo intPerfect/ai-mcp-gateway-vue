@@ -5,7 +5,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { login as loginApi, logout as logoutApi, getUserInfo, checkAuth } from '@/api/auth'
 import type { UserInfo, LoginRequest } from '@/types/user'
-import { getStorage, setStorage, removeStorage, clearStorage } from '@/utils'
+import { getStorage, setStorage, removeStorage } from '@/utils'
 
 const TOKEN_KEY = 'token'
 const USER_KEY = 'user_info'
@@ -56,23 +56,17 @@ export const useUserStore = defineStore('user', () => {
   async function login(credentials: LoginRequest): Promise<void> {
     loading.value = true
     try {
-      // 登录前清除所有旧缓存，避免残留脏数据
-      clearStorage()
       token.value = null
       userInfo.value = null
 
-      console.log('[UserStore] Calling login API...')
       const response = await loginApi(credentials)
-      console.log('[UserStore] Login API response:', response)
 
       token.value = response.token
       userInfo.value = response.user_info
 
-      // 持久化
+      // 持久化登录信息
       setStorage(TOKEN_KEY, response.token)
       setStorage(USER_KEY, response.user_info)
-
-      console.log('[UserStore] Token saved:', response.token?.substring(0, 20) + '...')
     } finally {
       loading.value = false
     }

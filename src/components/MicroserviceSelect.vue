@@ -168,3 +168,20 @@ const handleClear = () => {
   flex: 1;
 }
 </style>
+
+<style>
+/* 微服务多选已选中的标签卡片改为蓝色 */
+.arco-select-view .arco-tag {
+  background-color: #e8f3ff !important;
+  border-color: #bedaff !important;
+  color: #165dff !important;
+}
+
+.arco-select-view .arco-tag .arco-icon-close {
+  color: #165dff !important;
+}
+
+.arco-select-view .arco-tag .arco-icon-close:hover {
+  background-color: #c9dfff !important;
+}
+</style>

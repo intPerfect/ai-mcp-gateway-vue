@@ -1,5 +1,7 @@
 /**
  * 配置 Store - 应用配置状态管理
+ * 注意：配置项不持久化到 localStorage，每次从常量默认值初始化；
+ *       仅 theme（界面偏好）持久化。
  */
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
@@ -8,32 +10,19 @@ import { DEFAULT_API_BASE_URL, DEFAULT_GATEWAY_KEY, STORAGE_KEYS } from '@/const
 import type { ChatConfigForm } from '@/types'
 
 export const useConfigStore = defineStore('config', () => {
-  const savedConfig = getStorage<ChatConfigForm>(STORAGE_KEYS.CONFIG)
+  // 每次启动从常量初始化，不依赖 localStorage
+  const config = ref<ChatConfigForm>({
+    apiBaseUrl: DEFAULT_API_BASE_URL,
+    gatewayKey: DEFAULT_GATEWAY_KEY,
+    llmConfigId: '',
+    selectedMicroservices: []
+  })
 
-  const config = ref<ChatConfigForm>(
-    savedConfig || {
-      apiBaseUrl: DEFAULT_API_BASE_URL,
-      gatewayKey: DEFAULT_GATEWAY_KEY,
-      llmConfigId: '',
-      selectedMicroservices: []
-    }
-  )
-
-  // 主题
+  // 主题是界面偏好，保留持久化
   const theme = ref<'light' | 'dark'>(getStorage<'light' | 'dark'>(STORAGE_KEYS.THEME) || 'light')
-
-  // 监听配置变化，自动保存
-  watch(
-    config,
-    newVal => {
-      setStorage(STORAGE_KEYS.CONFIG, newVal)
-    },
-    { deep: true }
-  )
 
   watch(theme, newVal => {
     setStorage(STORAGE_KEYS.THEME, newVal)
-    // 应用主题
     document.documentElement.setAttribute('data-theme', newVal)
   })
 

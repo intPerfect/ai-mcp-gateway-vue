@@ -45,7 +45,7 @@ export function useWebSocket() {
       const wsPath = sessionData.websocket_url
 
       // 第二步：连接 WebSocket
-      const wsUrl = `ws://${window.location.hostname}:8777${wsPath}`
+      const wsUrl = `ws://${window.location.hostname}:8998${wsPath}`
       websocket = new WebSocket(wsUrl)
 
       return new Promise(resolve => {
