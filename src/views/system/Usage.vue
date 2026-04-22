@@ -31,7 +31,7 @@
           <a-statistic title="总调用次数" :value="stats.total_calls" />
         </a-col>
         <a-col :span="6">
-          <a-statistic title="时间窗口" :value="`${windowHours}小时`" />
+          <a-statistic title="时间窗口" :value="windowHours" :suffix="'小时'" />
         </a-col>
       </a-row>
 

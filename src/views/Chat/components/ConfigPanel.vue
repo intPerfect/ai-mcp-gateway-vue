@@ -102,12 +102,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { IconLink, IconClose } from '@arco-design/web-vue/es/icon'
 import { storeToRefs } from 'pinia'
 import MicroserviceSelect from '@/components/MicroserviceSelect.vue'
-import { useConfigStore, useChatStore } from '@/stores'
+import { useConfigStore, useChatStore, useUserStore } from '@/stores'
+import { OA_GATEWAY_KEY, DEFAULT_GATEWAY_KEY } from '@/constants'
 import type { LlmConfigInfo, Microservice, ToolInfo } from '@/types'
 
 const emit = defineEmits<{
@@ -117,11 +118,24 @@ const emit = defineEmits<{
 
 const configStore = useConfigStore()
 const chatStore = useChatStore()
+const userStore = useUserStore()
 
 const { config } = storeToRefs(configStore)
 const connected = computed(() => chatStore.connected)
 const connecting = computed(() => chatStore.connecting)
 const tools = computed(() => chatStore.tools)
+
+// 角色切换时自动更新 gatewayKey
+watch(
+  () => userStore.roles,
+  () => {
+    const roles = userStore.roles
+    config.value.gatewayKey =
+      roles.includes('OA_ADMIN') || roles.includes('OA_USER') ? OA_GATEWAY_KEY : DEFAULT_GATEWAY_KEY
+    config.value.llmConfigId = ''
+    config.value.selectedMicroservices = []
+  }
+)
 
 // Local transient state – not persisted, valid for the current page session only
 const verifying = ref(false)

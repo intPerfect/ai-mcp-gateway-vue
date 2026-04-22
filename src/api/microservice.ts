@@ -7,7 +7,6 @@ import type {
   MicroserviceCreate,
   MicroserviceUpdate,
   MicroserviceTool,
-  ToolBindRequest,
   ToolEnabledRequest,
   ToolDetail,
   ToolUpdateRequest,
@@ -64,17 +63,17 @@ export function getAllTools(): Promise<MicroserviceTool[]> {
 }
 
 /**
- * 绑定工具到微服务
- */
-export function bindTool(toolId: number, data: ToolBindRequest): Promise<void> {
-  return put<void>(`/tools/${toolId}/bind`, data)
-}
-
-/**
  * 更新工具启用状态
  */
 export function updateToolEnabled(toolId: number, data: ToolEnabledRequest): Promise<void> {
   return put<void>(`/tools/${toolId}/enabled`, data)
+}
+
+/**
+ * 删除工具
+ */
+export function deleteTool(toolId: number): Promise<void> {
+  return del<void>(`/tools/${toolId}`)
 }
 
 /**

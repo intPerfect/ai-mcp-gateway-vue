@@ -95,7 +95,7 @@
                 </div>
               </a-dgroup>
               <a-divider style="margin: 4px 0" />
-              <a-dgroup title="快速切换用户">
+              <a-dgroup v-if="testUsers.length" title="快速切换用户">
                 <a-doption v-for="user in testUsers" :key="user.username" @click="switchUser(user)">
                   <template #icon><icon-user /></template>
                   <span>{{ user.label }}</span>
@@ -157,14 +157,15 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
-// 快速切换用户的测试账号列表
-const testUsers = [
-  { username: 'admin', password: 'admin123', label: '超级管理员', roles: ['SUPER_ADMIN'] },
-  { username: 'oa_admin', password: '123456', label: 'OA管理员', roles: ['OA_ADMIN'] },
-  { username: 'product_admin', password: '123456', label: '商品管理员', roles: ['PRODUCT_ADMIN'] },
-  { username: 'oa_user', password: '123456', label: 'OA普通用户', roles: ['OA_USER'] },
-  { username: 'product_user', password: '123456', label: '商品普通用户', roles: ['PRODUCT_USER'] }
-]
+// 快速切换用户的测试账号列表 — 从 .env 读取，仅开发环境可用
+const testUsers = (() => {
+  const raw = import.meta.env.VITE_TEST_ACCOUNTS as string | undefined
+  if (!raw) return []
+  return raw.split(';').map(item => {
+    const [username, password, label, rolesStr] = item.split(':')
+    return { username, password, label, roles: rolesStr?.split(',') || [] }
+  })
+})()
 
 const collapsed = ref(false)
 const selectedKeys = ref(['home'])
@@ -251,13 +252,6 @@ watch(
   },
   { immediate: true }
 )
-
-const handleMenuClick = (key: string) => {
-  console.log('[Menu] menu-item-click key:', key)
-  if (key) {
-    router.push('/' + key)
-  }
-}
 </script>
 
 <style scoped>

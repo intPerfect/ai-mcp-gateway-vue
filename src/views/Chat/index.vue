@@ -30,7 +30,7 @@
               v-for="(msg, index) in chatStore.messages"
               :key="index"
               :message="msg"
-              :default-expanded="chatStore.expandedThoughts[`${index}-0`]"
+              :default-expanded="streamingStore.expandedThoughts[`${index}-0`]"
             />
           </div>
 
@@ -68,10 +68,11 @@ import ConfigPanel from './components/ConfigPanel.vue'
 import MessageItem from './components/MessageItem.vue'
 import ChatInput from './components/ChatInput.vue'
 import { useWebSocket } from './composables/useWebSocket'
-import { useChatStore } from '@/stores'
+import { useChatStore, useChatStreamingStore } from '@/stores'
 import { useScrollToBottom } from '@/hooks'
 
 const chatStore = useChatStore()
+const streamingStore = useChatStreamingStore()
 const { connect, disconnect, send } = useWebSocket()
 const {
   containerRef: messageListRef,
@@ -107,7 +108,7 @@ const handleSend = (message: string) => {
 
   chatStore.setSending(true)
   chatStore.setLoading(true)
-  chatStore.resetThinkingState()
+  streamingStore.resetThinkingState()
 
   // Immediately show user message bubble
   chatStore.addMessage({

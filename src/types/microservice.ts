@@ -5,6 +5,11 @@
 export type HealthStatus = 'healthy' | 'unhealthy' | 'unknown'
 export type CallStatus = 'sunny' | 'cloudy' | 'rainy'
 
+export interface MicroserviceGateway {
+  gateway_id: string
+  gateway_name: string
+}
+
 export interface Microservice {
   id: number
   name: string
@@ -12,6 +17,7 @@ export interface Microservice {
   description: string
   business_line_id?: number
   business_line: string
+  gateways: MicroserviceGateway[]
   health_status: HealthStatus
   last_check_time: string | null
   status: number
@@ -25,6 +31,7 @@ export interface MicroserviceCreate {
   http_base_url: string
   description?: string
   business_line_id?: number
+  gateway_id: string
 }
 
 export interface MicroserviceUpdate {
@@ -37,22 +44,16 @@ export interface MicroserviceUpdate {
 
 export interface MicroserviceTool {
   id: number
-  tool_id: number
   tool_name: string
   tool_description: string
-  microservice_id: number | null
-  microservice_name: string | null
-  business_line: string
+  microservice_id: number
+  protocol_id: number
   enabled: number
   call_status: CallStatus
   last_call_time: string | null
   last_call_code: string | null
   call_count: number
   error_count: number
-}
-
-export interface ToolBindRequest {
-  microservice_id: number
 }
 
 export interface ToolEnabledRequest {
@@ -85,6 +86,7 @@ export interface ToolDetail {
   tool_name: string
   tool_description: string
   protocol_id: number
+  microservice_id?: number
   http_config: ToolHttpConfig | null
   parameters: ToolParameterMapping[]
 }

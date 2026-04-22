@@ -34,6 +34,7 @@ export interface GatewayUpdate {
 export interface GatewayKey {
   id: number
   gateway_id: string
+  gateway_name: string
   key_id: string
   key_preview: string
   rate_limit: number
@@ -46,7 +47,7 @@ export interface GatewayKey {
 export interface GatewayKeyCreate {
   gateway_id: string
   rate_limit?: number
-  expire_days?: number
+  expire_time?: string
   remark?: string
 }
 

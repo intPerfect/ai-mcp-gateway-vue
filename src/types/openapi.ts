@@ -4,12 +4,11 @@
 
 // OpenAPI 导入请求
 export interface OpenAPIImportRequest {
-  gateway_id?: string
   service_name: string
   service_url: string
   openapi_url?: string
   openapi_spec?: Record<string, unknown>
-  microservice_id?: number
+  microservice_id: number
 }
 
 // 导入的工具信息

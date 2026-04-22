@@ -24,7 +24,7 @@ const routes = [
       {
         path: 'gateway',
         name: 'Gateway',
-        component: () => import('../views/Gateway.vue'),
+        component: () => import('../views/Gateway/index.vue'),
         meta: { requiresAuth: true, permission: 'gateway:read' }
       },
       {
@@ -55,7 +55,7 @@ const routes = [
       {
         path: 'system/role',
         name: 'Role',
-        component: () => import('../views/system/Role.vue'),
+        component: () => import('../views/system/Role/index.vue'),
         meta: { requiresAuth: true, permission: 'role:read' }
       },
       {

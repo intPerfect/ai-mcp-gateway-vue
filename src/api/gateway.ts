@@ -72,6 +72,13 @@ export function deleteGatewayKey(id: number): Promise<void> {
   return del<void>(`/gateway-keys/${id}`)
 }
 
+/**
+ * 更新网关Key信息
+ */
+export function updateGatewayKey(id: number, data: Record<string, unknown>): Promise<void> {
+  return put<void>(`/gateway-keys/${id}`, data)
+}
+
 // ============================================
 // LLM 配置 API (v10.0)
 // ============================================

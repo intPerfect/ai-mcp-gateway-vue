@@ -12,6 +12,9 @@ interface ImportMetaEnv {
   readonly VITE_BACKEND_URL: string
   readonly VITE_WS_URL: string
   readonly VITE_DEV_MODE: string
+  readonly VITE_DEFAULT_GATEWAY_KEY?: string
+  readonly VITE_OA_GATEWAY_KEY?: string
+  readonly VITE_TEST_ACCOUNTS?: string
 }
 
 interface ImportMeta {

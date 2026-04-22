@@ -43,34 +43,33 @@
         row-key="id"
       >
         <template #name="{ record }">
-          <a-link @click="showToolsModal(record)">{{ record.name }}</a-link>
+          <a-link @click="goToTools(record)">{{ record.name }}</a-link>
         </template>
-        <template #healthStatus="{ record }">
-          <a-tag :color="getHealthColor(record.health_status)">
-            {{ getHealthText(record.health_status) }}
-          </a-tag>
+        <template #gateway="{ record }">
+          <a-space :size="4" wrap>
+            <a-link
+              v-for="gw in record.gateways"
+              :key="gw.gateway_id"
+              @click="goToGateway(gw.gateway_id)"
+            >
+              {{ gw.gateway_name }}
+            </a-link>
+            <span v-if="!record.gateways || record.gateways.length === 0" class="text-gray">-</span>
+          </a-space>
+        </template>
+        <template #httpBaseUrl="{ record }">
+          <a-space :size="4" align="center">
+            <span class="http-url">{{ record.http_base_url }}</span>
+            <a-button type="text" size="mini" @click="handleHealthCheck(record)">
+              <template #icon><icon-check-circle /></template>
+            </a-button>
+          </a-space>
         </template>
         <template #businessLine="{ record }">
           <span>{{ record.business_line || '-' }}</span>
         </template>
-        <template #toolCount="{ record }">
-          <div class="tool-count-cell">
-            <a-badge
-              :count="record.tool_count || 0"
-              :dot-style="{ background: 'rgb(var(--primary-6))' }"
-            />
-          </div>
-        </template>
-        <template #status="{ record }">
-          <a-tag :color="record.status === 1 ? 'green' : 'red'">
-            {{ record.status === 1 ? '启用' : '禁用' }}
-          </a-tag>
-        </template>
         <template #operations="{ record }">
           <a-space :size="4">
-            <a-button type="text" size="small" @click="handleHealthCheck(record)">
-              <template #icon><icon-check-circle /></template>
-            </a-button>
             <a-button type="text" size="small" @click="showEditModal(record)">
               <template #icon><icon-edit /></template>
             </a-button>
@@ -113,34 +112,26 @@
             </a-option>
           </a-select>
         </a-form-item>
+        <a-form-item v-if="!isEdit" label="关联网关" required>
+          <a-select v-model="formData.gateway_id" placeholder="请选择网关">
+            <a-option v-for="gw in gateways" :key="gw.gateway_id" :value="gw.gateway_id">
+              {{ gw.gateway_name }}
+            </a-option>
+          </a-select>
+        </a-form-item>
         <a-form-item v-if="isEdit" label="状态">
           <a-switch v-model="formData.status" :checked-value="1" :unchecked-value="0" />
         </a-form-item>
       </a-form>
     </a-modal>
 
-    <!-- 工具绑定管理弹窗 -->
-    <a-modal
-      v-model:visible="toolsModalVisible"
-      :title="`${currentMicroservice?.name || ''} - 工具管理`"
-      :width="900"
-      :footer="false"
-      class="tools-modal"
-    >
-      <GroupedToolList
-        :tools="bindedTools"
-        :microservices="microserviceList"
-        :loading="toolsLoading"
-        :microservice-id="currentMicroservice?.id"
-        @refresh="loadTools"
-      />
-    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import type { TableColumn } from '@arco-design/web-vue'
 import {
@@ -150,26 +141,26 @@ import {
   IconDelete,
   IconRefresh
 } from '@arco-design/web-vue/es/icon'
-import GroupedToolList from '@/components/GroupedToolList.vue'
 import {
   getMicroservices,
   createMicroservice,
   updateMicroservice,
   deleteMicroservice,
-  checkMicroserviceHealth,
-  getMicroserviceTools
+  checkMicroserviceHealth
 } from '@/api/microservice'
 import { getBusinessLines } from '@/api/businessLine'
+import { getGateways } from '@/api/gateway'
 import type { BusinessLine } from '@/api/businessLine'
+import type { Gateway } from '@/types'
 import type {
   Microservice,
-  MicroserviceTool,
   MicroserviceCreate,
   MicroserviceUpdate
 } from '@/types'
 
+const router = useRouter()
+
 const columns: TableColumn[] = [
-  { title: '业务线', dataIndex: 'business_line', slotName: 'businessLine', width: 100 },
   {
     title: '服务名称',
     dataIndex: 'name',
@@ -178,25 +169,32 @@ const columns: TableColumn[] = [
     ellipsis: true,
     tooltip: true
   },
-  { title: 'HTTP地址', dataIndex: 'http_base_url', width: 200, ellipsis: true, tooltip: true },
-  { title: '描述', dataIndex: 'description', ellipsis: true, tooltip: true },
   {
-    title: '健康状态',
-    dataIndex: 'health_status',
-    slotName: 'healthStatus',
-    width: 80,
-    align: 'center'
+    title: '网关',
+    dataIndex: 'gateways',
+    slotName: 'gateway',
+    width: 160,
+    ellipsis: true,
+    tooltip: true,
   },
-  { title: '工具数', dataIndex: 'tool_count', slotName: 'toolCount', width: 60, align: 'center' },
-  { title: '状态', dataIndex: 'status', slotName: 'status', width: 70, align: 'center' },
-  { title: '操作', slotName: 'operations', width: 110, align: 'center' }
+  {
+    title: 'HTTP地址',
+    dataIndex: 'http_base_url',
+    slotName: 'httpBaseUrl',
+    width: 280,
+    ellipsis: true,
+    tooltip: true
+  },
+  { title: '业务线', dataIndex: 'business_line', slotName: 'businessLine', width: 100 },
+  { title: '描述', dataIndex: 'description', ellipsis: true, tooltip: true },
+  { title: '操作', slotName: 'operations', width: 80, align: 'center' }
 ]
 
 const loading = ref(false)
 const submitting = ref(false)
-const toolsLoading = ref(false)
 const microserviceList = ref<Microservice[]>([])
 const businessLines = ref<BusinessLine[]>([])
+const gateways = ref<Gateway[]>([])
 const filterBusinessLine = ref<string>('')
 const filterKeyword = ref<string>('')
 
@@ -217,51 +215,28 @@ const filteredMicroservices = computed(() => {
   return result
 })
 const formModalVisible = ref(false)
-const toolsModalVisible = ref(false)
 const isEdit = ref(false)
-const currentMicroservice = ref<Microservice | null>(null)
-const bindedTools = ref<MicroserviceTool[]>([])
 
 const formData = reactive<MicroserviceCreate & { id?: number; status?: number }>({
   name: '',
   http_base_url: '',
   description: '',
   business_line_id: undefined,
+  gateway_id: '',
   status: 1
 })
 
 const loadMicroservices = async () => {
   loading.value = true
   try {
-    const [microservices, bls] = await Promise.all([getMicroservices(), getBusinessLines()])
+    const [microservices, bls, gwList] = await Promise.all([getMicroservices(), getBusinessLines(), getGateways()])
     microserviceList.value = microservices
     businessLines.value = bls
+    gateways.value = gwList
   } catch (error: any) {
     Message.error('加载微服务列表失败: ' + error.message)
   } finally {
     loading.value = false
-  }
-}
-
-const getHealthColor = (status: string) => {
-  switch (status) {
-    case 'healthy':
-      return 'green'
-    case 'unhealthy':
-      return 'red'
-    default:
-      return 'gray'
-  }
-}
-
-const getHealthText = (status: string) => {
-  switch (status) {
-    case 'healthy':
-      return '健康'
-    case 'unhealthy':
-      return '异常'
-    default:
-      return '未知'
   }
 }
 
@@ -272,6 +247,7 @@ const showCreateModal = () => {
     http_base_url: '',
     description: '',
     business_line_id: undefined,
+    gateway_id: gateways.value[0]?.gateway_id || '',
     status: 1
   })
   formModalVisible.value = true
@@ -295,6 +271,10 @@ const handleSubmit = async () => {
     Message.warning('请填写必填项')
     return
   }
+  if (!isEdit.value && !formData.gateway_id) {
+    Message.warning('请选择关联网关')
+    return
+  }
 
   submitting.value = true
   try {
@@ -313,7 +293,8 @@ const handleSubmit = async () => {
         name: formData.name,
         http_base_url: formData.http_base_url,
         description: formData.description,
-        business_line_id: formData.business_line_id
+        business_line_id: formData.business_line_id,
+        gateway_id: formData.gateway_id
       }
       await createMicroservice(createData)
       Message.success('创建成功')
@@ -351,23 +332,18 @@ const handleHealthCheck = async (record: Microservice) => {
   }
 }
 
-const showToolsModal = async (record: Microservice) => {
-  currentMicroservice.value = record
-  toolsModalVisible.value = true
-  await loadTools()
+const goToTools = (record: Microservice) => {
+  router.push({
+    name: 'Tools',
+    query: {
+      businessLine: record.business_line || '',
+      microservice: record.name
+    }
+  })
 }
 
-const loadTools = async () => {
-  if (!currentMicroservice.value) return
-
-  toolsLoading.value = true
-  try {
-    bindedTools.value = await getMicroserviceTools(currentMicroservice.value.id)
-  } catch (error: any) {
-    Message.error('加载工具列表失败: ' + error.message)
-  } finally {
-    toolsLoading.value = false
-  }
+const goToGateway = (gatewayId: string) => {
+  router.push({ name: 'Gateway', query: { highlight: gatewayId } })
 }
 
 onMounted(() => {
@@ -439,29 +415,13 @@ onMounted(() => {
   gap: 8px;
 }
 
-.tool-count-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.text-gray {
+  color: var(--color-text-3);
 }
 
-.call-status {
-  font-size: 16px;
-  cursor: pointer;
+.http-url {
+  color: var(--color-text-2);
+  font-size: 13px;
 }
 
-.tools-modal :deep(.arco-modal-body) {
-  max-height: calc(100vh - 200px);
-  overflow-y: auto;
-}
-
-.tools-modal :deep(.arco-tabs-content) {
-  max-height: calc(100vh - 280px);
-  overflow-y: auto;
-}
-
-.tools-modal :deep(.arco-table-body) {
-  max-height: 350px !important;
-  overflow-y: auto !important;
-}
 </style>
