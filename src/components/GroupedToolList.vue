@@ -20,8 +20,8 @@
               <div v-for="tool in ms.tools" :key="tool.id" class="gtl-tool">
                 <div class="gtl-tool-main" @click="openEditModal(tool)">
                   <div class="gtl-tool-info">
-                    <span class="gtl-tool-name">{{ tool.tool_name }}</span>
-                    <span class="gtl-tool-desc">{{ tool.tool_description || '暂无描述' }}</span>
+                    <span class="gtl-tool-name" v-html="hl(tool.tool_name)"></span>
+                    <span class="gtl-tool-desc" v-html="hl(tool.tool_description || '暂无描述')"></span>
                   </div>
                   <span class="gtl-status" :class="tool.call_status">{{ getCallStatusIcon(tool.call_status) }}</span>
                 </div>
@@ -59,6 +59,7 @@ import type { MicroserviceTool, Microservice } from '@/types'
 import { updateToolEnabled, deleteTool } from '@/api/microservice'
 import { useUserStore } from '@/stores/user'
 import ToolEditModal from './tools/ToolEditModal.vue'
+import { highlightText } from '@/utils/highlight'
 
 const userStore = useUserStore()
 const canDelete = computed(() => userStore.hasPermission('tool:delete'))
@@ -68,16 +69,20 @@ interface Props {
   microservices?: Microservice[]
   loading?: boolean
   microserviceId?: number
+  searchKeyword?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   tools: () => [],
   microservices: () => [],
   loading: false,
-  microserviceId: undefined
+  microserviceId: undefined,
+  searchKeyword: ''
 })
 
 const emit = defineEmits<{ refresh: [] }>()
+
+const hl = (text: string) => highlightText(text, props.searchKeyword)
 
 const scrollRef = ref<HTMLElement | null>(null)
 const collapsedBL = ref<Set<string>>(new Set())
@@ -154,8 +159,7 @@ const handleEnabledChange = async (tool: MicroserviceTool) => {
   try {
     await updateToolEnabled(tool.id, { enabled: tool.enabled })
     Message.success(tool.enabled === 1 ? '已启用' : '已禁用')
-  } catch (error: any) {
-    Message.error(error.message || '操作失败')
+  } catch {
     tool.enabled = tool.enabled === 1 ? 0 : 1
   }
 }
@@ -165,8 +169,8 @@ const handleDelete = async (tool: MicroserviceTool) => {
     await deleteTool(tool.id)
     Message.success('删除成功')
     emit('refresh')
-  } catch (error: any) {
-    Message.error(error.message || '删除失败')
+  } catch {
+    // interceptor handles error tip
   }
 }
 </script>
@@ -302,5 +306,12 @@ const handleDelete = async (tool: MicroserviceTool) => {
 .gtl-status {
   font-size: 13px;
   flex-shrink: 0;
+}
+
+:deep(.hl) {
+  background: #fff3a8;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
 }
 </style>

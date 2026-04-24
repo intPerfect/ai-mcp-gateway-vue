@@ -214,8 +214,8 @@ const resetUsage = async (gatewayId: string, keyId: string) => {
     await resetUsageCount(gatewayId, keyId)
     Message.success('重置成功')
     loadData()
-  } catch (e: any) {
-    Message.error(e.message || '重置失败')
+  } catch {
+    // interceptor handles error tip
   }
 }
 

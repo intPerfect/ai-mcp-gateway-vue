@@ -101,7 +101,7 @@ import {
   setGatewayMicroservices
 } from '@/api/gateway'
 import type { Gateway, Microservice } from '@/types'
-import { highlightText } from '../highlight'
+import { highlightText } from '@/utils/highlight'
 
 const props = defineProps<{
   gateways: Gateway[]

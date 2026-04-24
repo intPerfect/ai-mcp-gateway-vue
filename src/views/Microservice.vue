@@ -43,7 +43,7 @@
         row-key="id"
       >
         <template #name="{ record }">
-          <a-link @click="goToTools(record)">{{ record.name }}</a-link>
+          <a-link @click="goToTools(record)" v-html="highlight(record.name)" />
         </template>
         <template #gateway="{ record }">
           <a-space :size="4" wrap>
@@ -51,22 +51,24 @@
               v-for="gw in record.gateways"
               :key="gw.gateway_id"
               @click="goToGateway(gw.gateway_id)"
-            >
-              {{ gw.gateway_name }}
-            </a-link>
+              v-html="highlight(gw.gateway_name)"
+            />
             <span v-if="!record.gateways || record.gateways.length === 0" class="text-gray">-</span>
           </a-space>
         </template>
         <template #httpBaseUrl="{ record }">
           <a-space :size="4" align="center">
-            <span class="http-url">{{ record.http_base_url }}</span>
+            <span class="http-url" v-html="highlight(record.http_base_url)"></span>
             <a-button type="text" size="mini" @click="handleHealthCheck(record)">
               <template #icon><icon-check-circle /></template>
             </a-button>
           </a-space>
         </template>
         <template #businessLine="{ record }">
-          <span>{{ record.business_line || '-' }}</span>
+          <span v-html="highlight(record.business_line || '-')"></span>
+        </template>
+        <template #description="{ record }">
+          <span v-html="highlight(record.description || '-')"></span>
         </template>
         <template #operations="{ record }">
           <a-space :size="4">
@@ -157,6 +159,9 @@ import type {
   MicroserviceCreate,
   MicroserviceUpdate
 } from '@/types'
+import { highlightText } from '@/utils/highlight'
+
+const highlight = (text: string) => highlightText(text, filterKeyword.value)
 
 const router = useRouter()
 
@@ -186,7 +191,7 @@ const columns: TableColumn[] = [
     tooltip: true
   },
   { title: '业务线', dataIndex: 'business_line', slotName: 'businessLine', width: 100 },
-  { title: '描述', dataIndex: 'description', ellipsis: true, tooltip: true },
+  { title: '描述', dataIndex: 'description', slotName: 'description', ellipsis: true, tooltip: true },
   { title: '操作', slotName: 'operations', width: 80, align: 'center' }
 ]
 
@@ -210,7 +215,12 @@ const filteredMicroservices = computed(() => {
   }
   if (filterKeyword.value) {
     const keyword = filterKeyword.value.toLowerCase()
-    result = result.filter(ms => ms.name.toLowerCase().includes(keyword))
+    result = result.filter(ms =>
+      ms.name.toLowerCase().includes(keyword) ||
+      (ms.http_base_url || '').toLowerCase().includes(keyword) ||
+      (ms.description || '').toLowerCase().includes(keyword) ||
+      (ms.business_line || '').toLowerCase().includes(keyword)
+    )
   }
   return result
 })
@@ -233,8 +243,8 @@ const loadMicroservices = async () => {
     microserviceList.value = microservices
     businessLines.value = bls
     gateways.value = gwList
-  } catch (error: any) {
-    Message.error('加载微服务列表失败: ' + error.message)
+  } catch {
+    // interceptor handles error tip
   } finally {
     loading.value = false
   }
@@ -301,8 +311,8 @@ const handleSubmit = async () => {
     }
     formModalVisible.value = false
     loadMicroservices()
-  } catch (error: any) {
-    Message.error(error.message || '操作失败')
+  } catch {
+    // interceptor handles error tip
   } finally {
     submitting.value = false
   }
@@ -313,8 +323,8 @@ const handleDelete = async (id: number) => {
     await deleteMicroservice(id)
     Message.success('删除成功')
     loadMicroservices()
-  } catch (error: any) {
-    Message.error(error.message || '删除失败')
+  } catch {
+    // interceptor handles error tip
   }
 }
 
@@ -327,8 +337,8 @@ const handleHealthCheck = async (record: Microservice) => {
       Message.warning(`${record.name} 健康检查失败: ${result.message}`)
     }
     loadMicroservices()
-  } catch (error: any) {
-    Message.error(error.message || '健康检查失败')
+  } catch {
+    // interceptor handles error tip
   }
 }
 
@@ -424,4 +434,10 @@ onMounted(() => {
   font-size: 13px;
 }
 
+:deep(.hl) {
+  background: #fff3a8;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+}
 </style>

@@ -175,11 +175,9 @@ const openKeys = ref(['system']) // 展开的子菜单
 const currentUserName = computed(() => userStore.realName || userStore.username || '未登录')
 const currentUserRoles = computed(() => userStore.roles.join(', ') || '无角色')
 
-// 是否显示系统管理菜单（超级管理员或有系统管理相关权限的用户）
+// 是否显示系统管理菜单（超管或有系统管理相关权限的用户）
 const showSystemMenu = computed(
-  () =>
-    userStore.isSuperAdmin ||
-    userStore.hasAnyPermission(['user:read', 'role:read', 'business_line:read'])
+  () => userStore.isSuperAdmin || userStore.canManageUsers
 )
 
 // 切换用户

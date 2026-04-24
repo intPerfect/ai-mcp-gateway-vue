@@ -14,6 +14,7 @@ export const useChatStore = defineStore('chat', () => {
   const sending = ref(false)
   const loading = ref(false)
   const sessionId = ref('')
+  const gatewayId = ref('')
 
   // 计算属性
   const hasMessages = computed(() => messages.value.length > 0)
@@ -52,6 +53,10 @@ export const useChatStore = defineStore('chat', () => {
     sessionId.value = id
   }
 
+  function setGatewayId(id: string) {
+    gatewayId.value = id
+  }
+
   function getLastMessage(): ChatMessage | null {
     return messages.value.length > 0 ? messages.value[messages.value.length - 1] : null
   }
@@ -64,6 +69,7 @@ export const useChatStore = defineStore('chat', () => {
     sending,
     loading,
     sessionId,
+    gatewayId,
     hasMessages,
     toolCount,
     addMessage,
@@ -74,6 +80,7 @@ export const useChatStore = defineStore('chat', () => {
     setSending,
     setLoading,
     setSessionId,
+    setGatewayId,
     getLastMessage
   }
 })

@@ -27,9 +27,13 @@
         </a-tag>
       </template>
       <template #actions="{ record }">
-        <a-button type="text" size="small" @click="openFormModal(record)">编辑</a-button>
+        <a-button type="text" size="small" @click="openFormModal(record)">
+          <template #icon><icon-edit /></template>
+        </a-button>
         <a-popconfirm content="确定要删除该LLM配置吗？" position="left" @ok="handleDelete(record.id)">
-          <a-button type="text" size="small" status="danger">删除</a-button>
+          <a-button type="text" size="small" status="danger">
+            <template #icon><icon-delete /></template>
+          </a-button>
         </a-popconfirm>
       </template>
     </a-table>
@@ -74,13 +78,14 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { Message } from '@arco-design/web-vue'
+import { IconEdit, IconDelete } from '@arco-design/web-vue/es/icon'
 import {
   createLlmConfig,
   updateLlmConfig,
   deleteLlmConfig as apiDeleteLlmConfig
 } from '@/api/gateway'
 import type { LlmConfig } from '@/types'
-import { highlightText } from '../highlight'
+import { highlightText } from '@/utils/highlight'
 
 const props = defineProps<{
   llmConfigs: LlmConfig[]

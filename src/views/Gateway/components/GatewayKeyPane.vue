@@ -14,14 +14,12 @@
         <span v-html="highlight(record.gateway_name || '-')" />
       </template>
       <template #key_preview="{ record }">
-        <a-tooltip :content="record.key_preview">
-          <span class="masked-key">{{ record.key_preview }}</span>
-        </a-tooltip>
+        <span class="masked-key">{{ record.key_preview }}</span>
         <a-button
           type="text"
           size="mini"
           class="copy-btn"
-          @click="copyKeyPreview(record.key_preview)"
+          @click="copyToClipboard(record.api_key)"
         >
           <template #icon><icon-copy /></template>
         </a-button>
@@ -59,9 +57,13 @@
       </template>
       <template #actions="{ record }">
         <a-space :size="4">
-          <a-button type="text" size="small" @click="openEditModal(record)">编辑</a-button>
+          <a-button type="text" size="small" @click="openEditModal(record)">
+            <template #icon><icon-edit /></template>
+          </a-button>
           <a-popconfirm content="确定要删除该Key吗？" position="left" @ok="handleDelete(record.id)">
-            <a-button type="text" size="small" status="danger">删除</a-button>
+            <a-button type="text" size="small" status="danger">
+              <template #icon><icon-delete /></template>
+            </a-button>
           </a-popconfirm>
         </a-space>
       </template>
@@ -145,18 +147,11 @@
       v-model:visible="resultVisible"
       title="Key创建成功"
       :footer="false"
-      :closable="false"
       :mask-closable="false"
     >
-      <a-alert type="warning" style="margin-bottom: 16px">
-        请立即保存以下Key，关闭后将无法再次查看完整内容！
-      </a-alert>
       <div class="key-display">
         <a-input :model-value="createdKey" readonly class="key-input" />
         <a-button type="primary" @click="copyKey">复制</a-button>
-      </div>
-      <div style="margin-top: 16px; text-align: right">
-        <a-button type="primary" @click="resultVisible = false">我已保存，关闭</a-button>
       </div>
     </a-modal>
   </a-card>
@@ -165,7 +160,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { Message } from '@arco-design/web-vue'
-import { IconCopy } from '@arco-design/web-vue/es/icon'
+import { IconCopy, IconEdit, IconDelete } from '@arco-design/web-vue/es/icon'
 import {
   createGatewayKey,
   deleteGatewayKey as apiDeleteGatewayKey,
@@ -176,7 +171,7 @@ import { useUserStore } from '@/stores'
 import type { Gateway, GatewayKey } from '@/types'
 
 const userStore = useUserStore()
-import { highlightText } from '../highlight'
+import { highlightText } from '@/utils/highlight'
 
 const props = defineProps<{
   gatewayKeys: GatewayKey[]
@@ -271,15 +266,25 @@ const handleDelete = async (id: number) => {
   } catch {}
 }
 
-const copyKey = () => {
-  navigator.clipboard.writeText(createdKey.value)
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+  }
   Message.success('已复制到剪贴板')
 }
 
-const copyKeyPreview = (text: string) => {
-  navigator.clipboard.writeText(text)
-  Message.success('已复制到剪贴板')
-}
+const copyKey = () => copyToClipboard(createdKey.value)
+
+const copyKeyPreview = (text: string) => copyToClipboard(text)
 
 // 编辑弹窗
 const editVisible = ref(false)

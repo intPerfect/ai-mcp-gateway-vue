@@ -56,10 +56,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { IconSend, IconRefresh, IconRight, IconPlus } from '@arco-design/web-vue/es/icon'
 import { SUGGESTED_QUESTIONS } from '@/constants'
-import { useUserStore } from '@/stores'
+import { useChatStore } from '@/stores'
 
 const props = defineProps<{
   connected: boolean
@@ -74,24 +74,22 @@ const emit = defineEmits<{
   'new-chat': []
 }>()
 
-const userStore = useUserStore()
+const chatStore = useChatStore()
 const inputMessage = ref('')
 const displayedQuestions = ref<{ text: string }[]>([])
 const isRefreshing = ref(false)
 const usedIndices = ref<Set<number>>(new Set())
 
-// Filter suggested questions by user role
-const getFilteredQuestions = () => {
-  const roles = userStore.userInfo?.roles || []
-  if (roles.includes('OA_ADMIN')) {
+// Filter suggested questions by current gateway
+const allQuestions = computed(() => {
+  const gid = chatStore.gatewayId
+  if (gid.includes('002') || gid.toLowerCase().includes('oa')) {
     return SUGGESTED_QUESTIONS.filter(q => q.businessLine === 'oa' || q.businessLine === 'common')
   }
   return SUGGESTED_QUESTIONS.filter(
     q => q.businessLine === 'product' || q.businessLine === 'common'
   )
-}
-
-const allQuestions = getFilteredQuestions()
+})
 
 const handleSend = () => {
   const message = inputMessage.value.trim()
@@ -102,24 +100,25 @@ const handleSend = () => {
 }
 
 const handleRefresh = () => {
-  if (allQuestions.length === 0) {
+  const questions = allQuestions.value
+  if (questions.length === 0) {
     displayedQuestions.value = []
     return
   }
   isRefreshing.value = true
   setTimeout(() => {
     const availableIndices: number[] = []
-    for (let i = 0; i < allQuestions.length; i++) {
+    for (let i = 0; i < questions.length; i++) {
       if (!usedIndices.value.has(i)) availableIndices.push(i)
     }
     if (availableIndices.length < 2) {
       usedIndices.value.clear()
-      for (let i = 0; i < allQuestions.length; i++) availableIndices.push(i)
+      for (let i = 0; i < questions.length; i++) availableIndices.push(i)
     }
     const shuffled = availableIndices.sort(() => Math.random() - 0.5)
     const selectedIndices = shuffled.slice(0, Math.min(2, shuffled.length))
     selectedIndices.forEach(i => usedIndices.value.add(i))
-    displayedQuestions.value = selectedIndices.map(i => allQuestions[i])
+    displayedQuestions.value = selectedIndices.map(i => questions[i])
     isRefreshing.value = false
   }, 300)
 }
@@ -129,6 +128,11 @@ const handleSelect = (text: string) => {
 }
 
 onMounted(() => {
+  handleRefresh()
+})
+
+watch(() => chatStore.gatewayId, () => {
+  usedIndices.value.clear()
   handleRefresh()
 })
 </script>

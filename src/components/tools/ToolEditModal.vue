@@ -134,8 +134,8 @@ watch(visible, async val => {
         form.retry_times = detail.http_config.retry_times || 0
       }
       form.parameters = (detail.parameters || []).map(p => ({ ...p }))
-    } catch (error: any) {
-      Message.error('加载工具详情失败: ' + (error.message || ''))
+    } catch {
+      // interceptor handles error tip
     } finally {
       detailLoading.value = false
     }
@@ -182,8 +182,8 @@ const handleSubmit = async () => {
     Message.success('更新成功')
     visible.value = false
     emit('saved')
-  } catch (error: any) {
-    Message.error(error.message || '更新失败')
+  } catch {
+    // interceptor handles error tip
   } finally {
     loading.value = false
   }

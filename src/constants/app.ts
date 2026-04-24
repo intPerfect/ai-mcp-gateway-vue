@@ -17,6 +17,15 @@ export const DEFAULT_GATEWAY_KEY = import.meta.env.VITE_DEFAULT_GATEWAY_KEY || '
 // OA 网关 Key — 从 .env 读取，生产环境不应包含
 export const OA_GATEWAY_KEY = import.meta.env.VITE_OA_GATEWAY_KEY || ''
 
+// 按角色映射的默认网关 Key（开发环境 mock 数据）
+export const ROLE_GATEWAY_KEYS: Record<string, string> = {
+  SUPER_ADMIN: import.meta.env.VITE_DEFAULT_GATEWAY_KEY || '',
+  OA_ADMIN: import.meta.env.VITE_OA_ADMIN_KEY || import.meta.env.VITE_OA_GATEWAY_KEY || '',
+  PRODUCT_ADMIN: import.meta.env.VITE_PRODUCT_ADMIN_KEY || import.meta.env.VITE_DEFAULT_GATEWAY_KEY || '',
+  OA_USER: import.meta.env.VITE_OA_USER_KEY || import.meta.env.VITE_OA_GATEWAY_KEY || '',
+  PRODUCT_USER: import.meta.env.VITE_PRODUCT_USER_KEY || import.meta.env.VITE_DEFAULT_GATEWAY_KEY || '',
+}
+
 // 注意: LLM配置现在从后端获取，不再使用硬编码的DEFAULT_LLM_KEY
 // v10.0: LLM配置统一管理，通过网关-LLM绑定关系获取可用配置
 

@@ -14,6 +14,12 @@
         <span class="tool-count">{{ displayTools.length }} 个工具</span>
       </div>
       <div class="toolbar-right">
+        <a-input
+          v-model="searchKeyword"
+          placeholder="搜索业务线、微服务或工具"
+          allow-clear
+          style="width: 220px"
+        />
         <a-button @click="loadData"><template #icon><icon-refresh /></template>刷新</a-button>
         <a-button type="primary" @click="openImportModal"><template #icon><icon-plus /></template>导入工具</a-button>
       </div>
@@ -23,22 +29,25 @@
       <a-spin :loading="loading" style="width: 100%; height: 100%">
         <!-- 全部工具: 折叠抽屉 -->
         <div v-if="!currentBL" class="drawer-list">
-          <template v-for="bl in businessLines" :key="bl.name">
+          <template v-for="bl in filteredBLGroups" :key="bl.name">
             <div class="drawer-bl" @click="toggleBL(bl.name)">
               <icon-down class="drawer-arrow" :class="{ collapsed: collapsedBLs.has(bl.name) }" />
-              <span class="drawer-bl-name">{{ bl.name }}</span>
+              <span class="drawer-bl-name" v-html="hl(bl.name)"></span>
               <span class="drawer-bl-count">{{ bl.toolCount }}</span>
             </div>
             <div v-show="!collapsedBLs.has(bl.name)" class="drawer-ms-list">
               <div v-for="ms in bl.microservices" :key="ms.id" class="drawer-ms" @click="navigateToMS(ms)">
-                <span class="drawer-ms-name">{{ ms.name }}</span>
-                <span class="drawer-ms-count">{{ getToolCount(ms.id) }} 个工具</span>
-                <icon-right class="drawer-ms-arrow" />
+                <div class="drawer-ms-info">
+                  <span class="drawer-ms-name" v-html="hl(ms.name)"></span>
+                  <span v-if="ms.description" class="drawer-ms-desc" v-html="hl(ms.description)"></span>
+                </div>
+                <span class="drawer-ms-count">{{ getToolCount(ms.id) }}</span>
+                <span class="drawer-ms-arrow-circle"><icon-right /></span>
               </div>
               <div v-if="bl.microservices.length === 0" class="drawer-empty">暂无微服务</div>
             </div>
           </template>
-          <div v-if="businessLines.length === 0" class="drawer-empty-page">
+          <div v-if="filteredBLGroups.length === 0" class="drawer-empty-page">
             <a-empty description="暂无工具数据" />
           </div>
         </div>
@@ -50,6 +59,7 @@
             :microservices="microserviceList"
             :loading="false"
             :microservice-id="currentMS?.id"
+            :search-keyword="searchKeyword"
             @refresh="loadData"
           />
         </div>
@@ -94,6 +104,7 @@ import { IconRefresh, IconPlus, IconCopy, IconRight, IconDown } from '@arco-desi
 import MicroserviceSelect from '@/components/MicroserviceSelect.vue'
 import GroupedToolList from '@/components/GroupedToolList.vue'
 import { getAllTools, getMicroservices } from '@/api/microservice'
+import { highlightText } from '@/utils/highlight'
 import { importOpenAPI } from '@/api/openapi'
 import type { MicroserviceTool, Microservice } from '@/types'
 
@@ -104,6 +115,7 @@ const showImportModal = ref(false)
 const importing = ref(false)
 const importMicroserviceIds = ref<number[]>([])
 const collapsedBLs = ref<Set<string>>(new Set())
+const searchKeyword = ref('')
 
 const route = useRoute()
 const currentBL = ref<string | null>(null)
@@ -131,16 +143,45 @@ const businessLines = computed<BLGroup[]>(() => {
   return result.sort((a, b) => a.name.localeCompare(b.name))
 })
 
+const filteredBLGroups = computed<BLGroup[]>(() => {
+  const kw = searchKeyword.value.toLowerCase().trim()
+  if (!kw) return businessLines.value
+
+  return businessLines.value
+    .map(bl => {
+      const filteredMs = bl.microservices.filter(ms => {
+        if (ms.name.toLowerCase().includes(kw) || (ms.description || '').toLowerCase().includes(kw)) return true
+        return toolsList.value.some(t =>
+          t.microservice_id === ms.id &&
+          ((t.tool_name || '').toLowerCase().includes(kw) || (t.tool_description || '').toLowerCase().includes(kw))
+        )
+      })
+      if (filteredMs.length === 0) return null
+      return { name: bl.name, microservices: filteredMs, toolCount: bl.toolCount }
+    })
+    .filter(Boolean) as BLGroup[]
+})
+
+const hl = (text: string) => highlightText(text, searchKeyword.value)
+
 const displayTools = computed(() => {
-  if (currentMS.value) return toolsList.value.filter(t => t.microservice_id === currentMS.value!.id)
-  if (currentBL.value) {
+  let result = toolsList.value
+  if (currentMS.value) result = result.filter(t => t.microservice_id === currentMS.value!.id)
+  else if (currentBL.value) {
     const bl = businessLines.value.find(b => b.name === currentBL.value)
     if (bl) {
       const msIds = new Set(bl.microservices.map(ms => ms.id))
-      return toolsList.value.filter(t => msIds.has(t.microservice_id))
+      result = result.filter(t => msIds.has(t.microservice_id))
     }
   }
-  return toolsList.value
+  if (searchKeyword.value) {
+    const kw = searchKeyword.value.toLowerCase()
+    result = result.filter(t =>
+      (t.tool_name || '').toLowerCase().includes(kw) ||
+      (t.tool_description || '').toLowerCase().includes(kw)
+    )
+  }
+  return result
 })
 
 const getToolCount = (msId: number) => toolsList.value.filter(t => t.microservice_id === msId).length
@@ -205,8 +246,8 @@ const loadData = async () => {
     } else if (route.query.businessLine) {
       currentBL.value = route.query.businessLine as string
     }
-  } catch (error: any) {
-    Message.error('加载数据失败：' + error.message)
+  } catch {
+    // interceptor handles error tip
   } finally {
     loading.value = false
   }
@@ -230,8 +271,8 @@ const handleImport = async () => {
     showImportModal.value = false
     importMicroserviceIds.value = []
     loadData()
-  } catch (error: any) {
-    Message.error('导入失败: ' + error.message)
+  } catch {
+    // interceptor handles error tip
   } finally {
     importing.value = false
   }
@@ -352,7 +393,17 @@ onMounted(() => { loadData() })
   transition: background 0.15s;
 }
 .drawer-ms:hover { background: #f2f3f5 }
-.drawer-ms-name { flex: 1; font-size: 13px; color: #4e5969; font-weight: 500 }
+.drawer-ms-info { flex: 1; min-width: 0; }
+.drawer-ms-name { font-size: 13px; color: #1d2129; font-weight: 500 }
+.drawer-ms-desc {
+  display: block;
+  font-size: 12px;
+  color: #86909c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 1px;
+}
 .drawer-ms-count {
   font-size: 11px;
   color: #fff;
@@ -365,10 +416,33 @@ onMounted(() => { loadData() })
   border-radius: 9px;
   padding: 0 5px;
 }
-.drawer-ms-arrow { font-size: 12px; color: #c9cdd4 }
+.drawer-ms-arrow-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f2f3f5;
+  color: #86909c;
+  font-size: 12px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.drawer-ms:hover .drawer-ms-arrow-circle {
+  background: #e8f3ff;
+  color: #165dff;
+}
 
 .drawer-empty { padding: 12px 24px; font-size: 12px; color: #c9cdd4 }
 .drawer-empty-page { padding: 80px 0; text-align: center }
 
 .tool-detail { height: 100% }
+
+:deep(.hl) {
+  background: #fff3a8;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+}
 </style>

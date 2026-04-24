@@ -14,6 +14,10 @@ interface ImportMetaEnv {
   readonly VITE_DEV_MODE: string
   readonly VITE_DEFAULT_GATEWAY_KEY?: string
   readonly VITE_OA_GATEWAY_KEY?: string
+  readonly VITE_OA_ADMIN_KEY?: string
+  readonly VITE_PRODUCT_ADMIN_KEY?: string
+  readonly VITE_OA_USER_KEY?: string
+  readonly VITE_PRODUCT_USER_KEY?: string
   readonly VITE_TEST_ACCOUNTS?: string
 }
 

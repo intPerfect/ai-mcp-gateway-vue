@@ -128,8 +128,8 @@ async function loadBusinessLines() {
   loading.value = true
   try {
     businessLines.value = await getBusinessLines()
-  } catch (e: any) {
-    Message.error('加载业务线失败: ' + e.message)
+  } catch {
+    // interceptor handles error tip
   } finally {
     loading.value = false
   }
@@ -163,8 +163,8 @@ function deleteBusinessLine(bl: BusinessLine) {
         await deleteBusinessLineApi(bl.id)
         Message.success('删除成功')
         loadBusinessLines()
-      } catch (e: any) {
-        Message.error('删除失败: ' + e.message)
+      } catch {
+        // interceptor handles error tip
       }
     }
   })
@@ -194,8 +194,8 @@ async function submitBusinessLine() {
     }
     closeDialog()
     loadBusinessLines()
-  } catch (e: any) {
-    Message.error('操作失败: ' + e.message)
+  } catch {
+    // interceptor handles error tip
   }
 }
 

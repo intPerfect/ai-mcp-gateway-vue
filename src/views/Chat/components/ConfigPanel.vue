@@ -108,7 +108,7 @@ import { IconLink, IconClose } from '@arco-design/web-vue/es/icon'
 import { storeToRefs } from 'pinia'
 import MicroserviceSelect from '@/components/MicroserviceSelect.vue'
 import { useConfigStore, useChatStore, useUserStore } from '@/stores'
-import { OA_GATEWAY_KEY, DEFAULT_GATEWAY_KEY } from '@/constants'
+import { OA_GATEWAY_KEY, DEFAULT_GATEWAY_KEY, ROLE_GATEWAY_KEYS } from '@/constants'
 import type { LlmConfigInfo, Microservice, ToolInfo } from '@/types'
 
 const emit = defineEmits<{
@@ -125,13 +125,15 @@ const connected = computed(() => chatStore.connected)
 const connecting = computed(() => chatStore.connecting)
 const tools = computed(() => chatStore.tools)
 
-// 角色切换时自动更新 gatewayKey
+// 角色切换时自动更新 gatewayKey（按角色匹配对应的 mock key）
 watch(
   () => userStore.roles,
   () => {
     const roles = userStore.roles
-    config.value.gatewayKey =
-      roles.includes('OA_ADMIN') || roles.includes('OA_USER') ? OA_GATEWAY_KEY : DEFAULT_GATEWAY_KEY
+    const matchedKey = roles
+      .map((r: string) => ROLE_GATEWAY_KEYS[r])
+      .find((k: string | undefined) => k)
+    config.value.gatewayKey = matchedKey || DEFAULT_GATEWAY_KEY
     config.value.llmConfigId = ''
     config.value.selectedMicroservices = []
   }
@@ -182,6 +184,7 @@ const verifyGateway = async () => {
     if (response.ok) {
       const data = await response.json()
       verifiedGateway.value = data
+      chatStore.setGatewayId(data.gateway_id)
       microserviceList.value = data.microservices.map(
         (ms: { id: number; name: string; business_line?: string; health_status: string }) => ({
           id: ms.id,
@@ -204,6 +207,7 @@ const verifyGateway = async () => {
       llmConfigList.value = []
       config.value.selectedMicroservices = []
       config.value.llmConfigId = ''
+      chatStore.setGatewayId('')
       Message.error('网关 Key 无效')
     }
   } catch {
@@ -212,6 +216,7 @@ const verifyGateway = async () => {
     llmConfigList.value = []
     config.value.selectedMicroservices = []
     config.value.llmConfigId = ''
+    chatStore.setGatewayId('')
     Message.error('网关验证失败，请检查后端地址')
   } finally {
     verifying.value = false

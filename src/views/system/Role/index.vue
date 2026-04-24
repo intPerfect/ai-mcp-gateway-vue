@@ -20,16 +20,10 @@
           <a-table-column title="描述" data-index="description">
             <template #cell="{ record }">{{ record.description || '-' }}</template>
           </a-table-column>
-          <a-table-column title="类型" data-index="is_system" :width="100">
-            <template #cell="{ record }">
-              <a-tag :color="record.is_system ? 'orange' : 'green'">
-                {{ record.is_system ? '系统' : '自定义' }}
-              </a-tag>
-            </template>
-          </a-table-column>
           <a-table-column title="业务线" data-index="business_line_name" :width="100">
             <template #cell="{ record }">
-              <a-tag v-if="record.business_line_name" color="green">
+              <a-tag v-if="record.role_code === 'SUPER_ADMIN'" color="arcoblue">系统</a-tag>
+              <a-tag v-else-if="record.business_line_name" color="green">
                 {{ record.business_line_name }}
               </a-tag>
               <span v-else class="text-gray">全局</span>

@@ -30,26 +30,22 @@
               </a-space>
             </template>
           </a-table-column>
-          <a-table-column title="业务线管理员" data-index="managed_business_lines" :width="140">
+          <a-table-column title="已赋权限" data-index="permissions">
             <template #cell="{ record }">
-              <a-space>
+              <div class="perm-summary">
                 <a-tag
-                  v-for="bl in record.managed_business_lines"
+                  v-for="bl in record.business_lines"
                   :key="bl.id"
                   size="small"
                   color="green"
-                >
-                  {{ bl.line_name }}
-                </a-tag>
-                <span
-                  v-if="
-                    !record.managed_business_lines || record.managed_business_lines.length === 0
-                  "
-                  class="text-gray"
-                >
-                  -
-                </span>
-              </a-space>
+                >{{ bl.line_name }}</a-tag>
+                <a-tag
+                  v-if="record.roles && record.roles.includes('SUPER_ADMIN')"
+                  size="small"
+                  color="red"
+                >全部权限</a-tag>
+                <span v-if="(!record.business_lines || record.business_lines.length === 0) && !(record.roles && record.roles.includes('SUPER_ADMIN'))" class="text-gray">-</span>
+              </div>
             </template>
           </a-table-column>
           <a-table-column title="状态" data-index="status" :width="100">
@@ -59,9 +55,18 @@
               </a-tag>
             </template>
           </a-table-column>
-          <a-table-column title="操作" :width="150">
+          <a-table-column title="操作" :width="200">
             <template #cell="{ record }">
               <a-space>
+                <a-button
+                  v-permission="'user:read'"
+                  type="text"
+                  size="small"
+                  @click="viewPermissions(record)"
+                >
+                  <template #icon><icon-eye /></template>
+                  权限
+                </a-button>
                 <a-button
                   v-permission="'user:update'"
                   type="text"
@@ -144,7 +149,7 @@
             </a-option>
           </a-select>
           <template #extra>
-            <span class="form-tip">可分配角色取决于您的业务线管理权限</span>
+            <span class="form-tip">可分配角色取决于您的权限范围</span>
           </template>
         </a-form-item>
         <a-form-item field="status" label="状态">
@@ -155,15 +160,31 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- 查看权限对话框 -->
+    <a-modal
+      v-model:visible="showPermDialog"
+      :title="`用户权限 - ${permViewUser?.username || ''}`"
+      :width="860"
+      :footer="false"
+      unmount-on-close
+    >
+      <GatewayPermList
+        :permissions="userGatewayPerms"
+        :readonly="true"
+        :loading="loadingPerms"
+      />
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { IconPlus, IconEdit, IconDelete } from '@arco-design/web-vue/es/icon'
-import type { UserInfo, RoleInfo } from '@/types/user'
+import { IconPlus, IconEdit, IconDelete, IconEye } from '@arco-design/web-vue/es/icon'
+import type { UserInfo, RoleInfo, GatewayPermission } from '@/types/user'
 import { get, del, post as postReq, put } from '@/api/request'
+import GatewayPermList from './Role/components/GatewayPermList.vue'
 
 const users = ref<UserInfo[]>([])
 const showCreateDialog = ref(false)
@@ -179,6 +200,25 @@ const form = reactive({
   role_ids: [] as number[],
   status: 1
 })
+
+// 查看权限相关
+const showPermDialog = ref(false)
+const permViewUser = ref<UserInfo | null>(null)
+const loadingPerms = ref(false)
+const userGatewayPerms = ref<GatewayPermission[]>([])
+
+async function viewPermissions(user: UserInfo) {
+  permViewUser.value = user
+  showPermDialog.value = true
+  loadingPerms.value = true
+  try {
+    userGatewayPerms.value = await get<GatewayPermission[]>(`/users/${user.id}/gateway-permissions`)
+  } catch (e) {
+    console.error('Failed to load user gateway permissions:', e)
+  } finally {
+    loadingPerms.value = false
+  }
+}
 
 async function loadUsers() {
   try {
@@ -325,5 +365,11 @@ onMounted(loadUsers)
 .form-tip {
   font-size: 12px;
   color: var(--color-text-3);
+}
+
+.perm-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 </style>

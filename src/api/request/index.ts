@@ -150,21 +150,23 @@ service.interceptors.response.use(
           ) {
             isRedirecting = true
             removeStorage('token')
-            removeStorage('user_info')
             // 强制刷新页面跳转到登录页，确保所有状态重置
             window.location.replace('/login')
           }
           break
 
-        case 403:
+        case 403: {
+          const detail = data?.detail || data?.info || ''
+          const msg = detail ? `权限不足：${detail}` : '没有权限访问'
           requestError = new RequestError(
             ErrorType.FORBIDDEN,
-            '没有权限访问',
+            msg,
             data?.code,
             status,
             data
           )
           break
+        }
 
         case 404:
           requestError = new RequestError(

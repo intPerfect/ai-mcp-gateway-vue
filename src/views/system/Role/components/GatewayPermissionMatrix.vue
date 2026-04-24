@@ -2,151 +2,78 @@
   <a-modal
     v-model:visible="visible"
     :title="`网关权限配置 - ${role?.role_name || ''}`"
-    :width="800"
-    :ok-loading="saving"
-    ok-text="保存"
-    cancel-text="取消"
-    @ok="handleSave"
-    @cancel="visible = false"
+    :width="860"
+    :footer="false"
+    unmount-on-close
   >
-    <a-table
-      :data="gatewayTableData"
-      :pagination="false"
-      :bordered="{ wrapper: true, cell: true }"
-      :expandable="{ defaultExpandAllRows: true, width: 0 }"
-      size="small"
-      row-key="key"
-      :scroll="{ y: 400 }"
-      class="gateway-table"
-    >
-      <template #columns>
-        <a-table-column title="网关" data-index="name" :width="200" />
-        <a-table-column title="创建" :width="80" align="center">
-          <template #cell="{ record }">
-            <a-checkbox
-              v-if="record.isGroup"
-              :model-value="record.children.every((c: any) => c.can_create)"
-              :indeterminate="record.children.some((c: any) => c.can_create) && !record.children.every((c: any) => c.can_create)"
-              @change="(val: any) => onGroupPermCheckChange(record, 'can_create', val)"
-            />
-            <a-checkbox v-else v-model="record.can_create" />
-          </template>
-        </a-table-column>
-        <a-table-column title="查看" :width="80" align="center">
-          <template #cell="{ record }">
-            <a-checkbox
-              v-if="record.isGroup"
-              :model-value="record.children.every((c: any) => c.can_read)"
-              :indeterminate="record.children.some((c: any) => c.can_read) && !record.children.every((c: any) => c.can_read)"
-              @change="(val: any) => onGroupPermCheckChange(record, 'can_read', val)"
-            />
-            <a-checkbox v-else v-model="record.can_read" />
-          </template>
-        </a-table-column>
-        <a-table-column title="编辑" :width="80" align="center">
-          <template #cell="{ record }">
-            <a-checkbox
-              v-if="record.isGroup"
-              :model-value="record.children.every((c: any) => c.can_update)"
-              :indeterminate="record.children.some((c: any) => c.can_update) && !record.children.every((c: any) => c.can_update)"
-              @change="(val: any) => onGroupPermCheckChange(record, 'can_update', val)"
-            />
-            <a-checkbox v-else v-model="record.can_update" />
-          </template>
-        </a-table-column>
-        <a-table-column title="删除" :width="80" align="center">
-          <template #cell="{ record }">
-            <a-checkbox
-              v-if="record.isGroup"
-              :model-value="record.children.every((c: any) => c.can_delete)"
-              :indeterminate="record.children.some((c: any) => c.can_delete) && !record.children.every((c: any) => c.can_delete)"
-              @change="(val: any) => onGroupPermCheckChange(record, 'can_delete', val)"
-            />
-            <a-checkbox v-else v-model="record.can_delete" />
-          </template>
-        </a-table-column>
-        <a-table-column title="对话" :width="80" align="center">
-          <template #cell="{ record }">
-            <a-checkbox
-              v-if="record.isGroup"
-              :model-value="record.children.every((c: any) => c.can_chat)"
-              :indeterminate="record.children.some((c: any) => c.can_chat) && !record.children.every((c: any) => c.can_chat)"
-              @change="(val: any) => onGroupPermCheckChange(record, 'can_chat', val)"
-            />
-            <a-checkbox v-else v-model="record.can_chat" />
-          </template>
-        </a-table-column>
-      </template>
-    </a-table>
+    <GatewayPermList
+      :permissions="gatewayPermissions"
+      :readonly="false"
+      :loading="loading"
+      :exclude="['can_manage_users']"
+      :group-exclude="[]"
+      @change="onPermChange"
+      @group-change="onGroupChange"
+    />
+
+    <div class="perm-footer">
+      <a-space>
+        <a-button @click="visible = false">取消</a-button>
+        <a-button type="primary" :loading="saving" @click="handleSave">保存</a-button>
+      </a-space>
+    </div>
   </a-modal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import type { RoleInfo, GatewayPermission } from '@/types/user'
 import { get, put } from '@/api/request'
+import GatewayPermList from './GatewayPermList.vue'
 
-const props = defineProps<{
-  role: RoleInfo | null
-}>()
+type PermKey = 'can_view' | 'can_manage_gateway' | 'can_delete_gateway' | 'can_manage_keys' | 'can_manage_microservices' | 'can_manage_tools' | 'can_manage_users' | 'can_chat'
 
+const props = defineProps<{ role: RoleInfo | null }>()
 const visible = defineModel<boolean>('visible', { default: false })
 const emit = defineEmits<{ saved: [] }>()
 
+const loading = ref(false)
 const saving = ref(false)
 const gatewayPermissions = ref<GatewayPermission[]>([])
 
-const gatewayTableData = computed(() => {
-  const result: any[] = []
-  const groupMap = new Map<string, any>()
+function onPermChange(item: GatewayPermission, perm: PermKey, val: boolean) {
+  item[perm] = val
+  if (perm === 'can_chat' && val) item.can_view = true
+  if (perm === 'can_view' && !val) item.can_chat = false
+}
 
-  for (const perm of gatewayPermissions.value) {
-    const blNames: string[] = perm.business_line_names || []
-    const blName = blNames[0] || '未分组'
-    if (!groupMap.has(blName)) {
-      groupMap.set(blName, {
-        key: `bl_${blName}`,
-        name: blName,
-        isGroup: true,
-        children: [],
-      })
-    }
-    groupMap.get(blName).children.push(perm)
-  }
-
-  for (const group of groupMap.values()) {
-    result.push(group)
-  }
-  return result
-})
-
-function onGroupPermCheckChange(group: any, perm: string, checked: boolean) {
-  for (const child of group.children) {
-    child[perm] = checked
-  }
+function onGroupChange(group: { items: GatewayPermission[] }, perm: PermKey, val: boolean) {
+  for (const item of group.items) onPermChange(item, perm, val)
 }
 
 async function loadPermissions() {
   if (!props.role) return
+  loading.value = true
   try {
-    const data = await get<GatewayPermission[]>(
-      `/roles/${props.role.id}/gateway-permissions`
-    )
+    const data = await get<GatewayPermission[]>(`/roles/${props.role.id}/gateway-permissions`)
     gatewayPermissions.value = data.map(perm => ({
       gateway_id: perm.gateway_id,
       gateway_name: perm.gateway_name,
       business_line_names: perm.business_line_names || [],
-      can_create: Boolean(perm.can_create),
-      can_read: Boolean(perm.can_read),
-      can_update: Boolean(perm.can_update),
-      can_delete: Boolean(perm.can_delete),
+      can_view: Boolean(perm.can_view),
+      can_manage_gateway: Boolean(perm.can_manage_gateway),
+      can_delete_gateway: Boolean(perm.can_delete_gateway),
+      can_manage_keys: Boolean(perm.can_manage_keys),
+      can_manage_microservices: Boolean(perm.can_manage_microservices),
+      can_manage_tools: Boolean(perm.can_manage_tools),
+      can_manage_users: Boolean(perm.can_manage_users),
       can_chat: Boolean(perm.can_chat),
-      key: `gw_${perm.gateway_id}`,
-      name: `${perm.gateway_name} (${perm.gateway_id})`
-    })) as GatewayPermission[]
+    }))
   } catch (e) {
     console.error('Failed to load gateway permissions:', e)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -154,15 +81,20 @@ async function handleSave() {
   if (!props.role) return
   saving.value = true
   try {
-    const permsToSave = gatewayPermissions.value.map(perm => ({
-      gateway_id: perm.gateway_id,
-      can_create: perm.can_create,
-      can_read: perm.can_read,
-      can_update: perm.can_update,
-      can_delete: perm.can_delete,
-      can_chat: perm.can_chat,
-    }))
-    await put(`/roles/${props.role.id}/gateway-permissions`, permsToSave)
+    await put(
+      `/roles/${props.role.id}/gateway-permissions`,
+      gatewayPermissions.value.map(p => ({
+        gateway_id: p.gateway_id,
+        can_view: p.can_view,
+        can_manage_gateway: p.can_manage_gateway,
+        can_delete_gateway: p.can_delete_gateway,
+        can_manage_keys: p.can_manage_keys,
+        can_manage_microservices: p.can_manage_microservices,
+        can_manage_tools: p.can_manage_tools,
+        can_manage_users: p.can_manage_users,
+        can_chat: p.can_chat,
+      }))
+    )
     Message.success('权限保存成功')
     visible.value = false
     emit('saved')
@@ -173,19 +105,15 @@ async function handleSave() {
   }
 }
 
-watch(visible, async val => {
-  if (val) await loadPermissions()
-})
+watch(visible, val => { if (val) loadPermissions() })
 </script>
 
 <style scoped>
-.gateway-table :deep(.arco-table-expand-col) {
-  width: 0 !important;
-  min-width: 0 !important;
-  max-width: 0 !important;
-  padding: 0 !important;
-}
-.gateway-table :deep(.arco-table-expand-icon) {
-  display: none !important;
+.perm-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-2);
 }
 </style>

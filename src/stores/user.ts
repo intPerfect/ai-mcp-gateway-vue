@@ -8,12 +8,11 @@ import type { UserInfo, LoginRequest } from '@/types/user'
 import { getStorage, setStorage, removeStorage } from '@/utils'
 
 const TOKEN_KEY = 'token'
-const USER_KEY = 'user_info'
 
 export const useUserStore = defineStore('user', () => {
   // 状态
   const token = ref<string | null>(getStorage<string>(TOKEN_KEY) || null)
-  const userInfo = ref<UserInfo | null>(getStorage<UserInfo>(USER_KEY) || null)
+  const userInfo = ref<UserInfo | null>(null)
   const loading = ref(false)
 
   // 计算属性
@@ -25,6 +24,9 @@ export const useUserStore = defineStore('user', () => {
 
   // 是否是超级管理员
   const isSuperAdmin = computed(() => roles.value.includes('SUPER_ADMIN'))
+
+  // 是否有业务线管理员权限（基于网关权限 can_manage_users）
+  const canManageUsers = computed(() => userInfo.value?.can_manage_users || false)
 
   /**
    * 检查是否有指定权限
@@ -64,9 +66,8 @@ export const useUserStore = defineStore('user', () => {
       token.value = response.token
       userInfo.value = response.user_info
 
-      // 持久化登录信息
+      // 只持久化 token，不缓存用户信息（每次从后端获取最新数据）
       setStorage(TOKEN_KEY, response.token)
-      setStorage(USER_KEY, response.user_info)
     } finally {
       loading.value = false
     }
@@ -85,12 +86,11 @@ export const useUserStore = defineStore('user', () => {
       token.value = null
       userInfo.value = null
       removeStorage(TOKEN_KEY)
-      removeStorage(USER_KEY)
     }
   }
 
   /**
-   * 刷新用户信息
+   * 刷新用户信息（从后端获取最新数据）
    */
   async function refreshUserInfo(): Promise<void> {
     if (!token.value) return
@@ -98,7 +98,6 @@ export const useUserStore = defineStore('user', () => {
     try {
       const info = await getUserInfo()
       userInfo.value = info
-      setStorage(USER_KEY, info)
     } catch {
       // Token过期，清除状态
       logout()
@@ -116,10 +115,8 @@ export const useUserStore = defineStore('user', () => {
     try {
       const result = await checkAuth()
       if (result.logged_in) {
-        // 如果本地没有用户信息，从服务器获取
-        if (!userInfo.value) {
-          await refreshUserInfo()
-        }
+        // 每次都从后端获取最新用户信息（Redis 旁路缓存）
+        await refreshUserInfo()
         return true
       } else {
         // Token无效，清除状态
@@ -145,6 +142,7 @@ export const useUserStore = defineStore('user', () => {
     roles,
     permissions,
     isSuperAdmin,
+    canManageUsers,
 
     // 方法
     hasPermission,
